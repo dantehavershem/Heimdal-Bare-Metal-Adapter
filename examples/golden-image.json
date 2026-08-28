@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "type": "golden-image",
+  "name": "Finance Windows 11",
+  "source": {"storage": "golden-images", "path": "finance-win11-v1/manifest.json"},
+  "image": {"mode": "filesystem-aware", "compression": "zstd", "verifySha256": true},
+  "target": {"disk": "auto", "minimumSizeGiB": 256, "resizeLastFilesystem": true},
+  "postDeploy": {"adapter": "windows", "regenerateIdentity": true, "driverMatch": true},
+  "destructive": true
+}

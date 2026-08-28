@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: baremetal
+      POSTGRES_USER: baremetal
+      POSTGRES_PASSWORD: baremetal
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baremetal -d baremetal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${BAREMETAL_ADAPTER_STORAGE_HOST:-./storage}:/storage
+      - scratch:/scratch
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.workers.runner"]
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${BAREMETAL_ADAPTER_STORAGE_HOST:-./storage}:/storage
+      - scratch:/scratch
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+  # Optional future conversion worker. Kept out of the default footprint.
+  conversion-worker:
+    profiles: ["conversion"]
+    build: ./backend
+    command: ["python", "-m", "app.workers.runner", "--capability", "conversion"]
+    env_file: .env
+    volumes:
+      - ${BAREMETAL_ADAPTER_STORAGE_HOST:-./storage}:/storage
+      - scratch:/scratch
+    restart: unless-stopped
+
+  # Optional standalone PXE service. Disabled by default to avoid DHCP/PXE conflicts.
+  pxe:
+    profiles: ["pxe"]
+    image: alpine:3.21
+    command: ["sh", "-c", "echo 'Standalone PXE profile reserved; Heimdal PXE adapter is the default path.'; sleep infinity"]
+    network_mode: host
+    restart: unless-stopped
+
+volumes:
+  db:
+  redis:
+  scratch:

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "type": "installer-iso",
+  "name": "Ubuntu Server",
+  "source": {"storage": "iso-library", "path": "ubuntu.iso", "preserveOriginal": true},
+  "boot": {"strategy": "auto", "firmware": ["uefi"], "architecture": "x86_64"},
+  "heimdal": {"entryPoint": "SETUP.EXE", "handoff": "one-time-uefi"}
+}
