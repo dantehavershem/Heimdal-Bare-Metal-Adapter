@@ -1,0 +1,5 @@
+LIBRARY ADVAPI32.dll
+EXPORTS
+OpenProcessToken
+LookupPrivilegeValueW
+AdjustTokenPrivileges

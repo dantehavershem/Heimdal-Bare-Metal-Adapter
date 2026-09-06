@@ -1,4 +1,168 @@
-# Latest handoff — unattended WinPE PXE test PASSED, 2026-09-06
+# Latest handoff — automatic Ubuntu handoff passed — 2026-09-06
+
+## User direction and active work
+
+The user authorized continuing the generated capsule / WinPE-to-UEFI / Ubuntu
+lab tests autonomously, requested disk cleanup, and asked to keep this handoff
+current while they are away. The current lab milestone is complete; continue
+within the authorized scope without asking routine confirmation. The environment now permits full filesystem/network access and
+has approval policy `never`; do not pass `sandbox_permissions` to tools.
+No subagents are authorized. Preserve uncommitted work.
+
+**Latest run passed:** `artifacts/pxe-test/winpe-pxe-20260906T015249.555025Z/`.
+Result: `report.json`, `passed: true`, 1046.2 seconds (17m 26s).
+PXE WinPE -> actual capsule SETUP.EXE -> BootNext reboot -> verified UEFI stage
+-> GRUB -> Ubuntu 26.04.1 LTS Subiquity Serial welcome screen.
+No keyboard input or service restart was used. Only terminal protocol queries
+were answered automatically (five response batches); raw guest output is saved.
+Exactly one guest RESET, all eight HTTP transfers, DHCP/TFTP, all WinPE handoff
+markers, and all six stricter EFI markers passed. BootOrder was preserved,
+BootNext consumed, BootCurrent matched, and temporary-variable deletion read back.
+The harness exited successfully and removed its container; no lab guest remains.
+The original `serial.log`, `debug.log`, `qmp-events.json`, capsule metadata, and
+report are retained. The old exit-37 stage/bridge markers are deliberately false
+in this case; case-specific handoff and Ubuntu evidence determine its result.
+
+`winpe-pxe-20260906T013237.431234Z` was stopped as a diagnostic after reaching
+Subiquity's Serial screen. Its original interrupted report is preserved, not
+rewritten as a pass. Ctrl-Alt-F2 was sent for observation; no guest commands or
+service changes were made. All stricter EFI checks, one guest reset, and all eight
+HTTP transfers are recorded. Slow snap/cloud-init startup accounted for the wait.
+
+Earlier Ubuntu diagnostics:
+
+- `winpe-pxe-20260906T011505.608035Z` booted the source DVD directly and was
+  stopped without a pass. Explicit NIC `bootindex=1` now forces the initial PXE
+  path; BootNext overrides it for the handoff reboot.
+- `winpe-pxe-20260906T011741.080830Z` completed all stricter handoff checks,
+  loaded GRUB, booted Ubuntu 26.04.1 LTS / Linux 7.0.0-30-generic, and reached
+  the live tty2 shell. It was stopped as a diagnostic, not an unattended pass.
+  Serial device initialization exceeded the 90-second systemd device wait;
+  `serial-device.png` confirms the device became active later. Manual restart
+  of the serial service confirmed that its command launches the Subiquity snap,
+  not a conventional login prompt (`serial-unit.png`). The serial output-only
+  backend could not answer terminal-size queries from the installer.
+
+The successful automatic run addresses both findings: the generated GRUB command line sets
+`systemd.default_device_timeout_sec=600` for slow TCG device setup, and
+`serial_terminal.py` answers only terminal queries through a bidirectional socket.
+It never writes synthesized markers to the guest-output log or sends shell
+commands. Four responder tests passed. Ubuntu success requires the actual installer Serial or Welcome/English UI
+alongside the full handoff, kernel, and network evidence. A login banner alone
+is insufficient. Five readiness tests cover positive and incomplete evidence. No manual interaction was used in the successful run.
+
+## Completed milestones
+
+- Independent diskless PXE/WinPE launcher: passed, 144.6 seconds, run
+  `winpe-pxe-20260906T003352.579436Z`. Missing-WIM control passed in 17.0 seconds,
+  run `winpe-pxe-20260906T003646.958113Z`.
+- Generated lab capsule / WinPE -> UEFI: passed in 175.6 seconds, run
+  `winpe-pxe-20260906T010359.765597Z`. Actual root SETUP.EXE staged the EFI file,
+  set BootNext, and caused exactly one guest RESET. The EFI proof verified
+  BootOrder preservation, BootNext consumption, and temporary-variable cleanup.
+- Missing EFI payload: passed in 168.9 seconds, run
+  `winpe-pxe-20260906T010801.293915Z`. Capsule exit 60; no reset or handoff.
+- Invalid EFI payload: passed in 185.8 seconds, run
+  `winpe-pxe-20260906T011119.375712Z`. Native invalid-image error 35 propagated
+  as capsule exit 66 before firmware access; no reset or handoff.
+- Ubuntu installer handoff: passed in 1046.2 seconds, run
+  `winpe-pxe-20260906T015249.555025Z`, including matching BootCurrent and
+  deletion readback. The earlier standalone proof predates those extra checks.
+
+## Code and runtime
+
+See `docs/HANDOFF_TEST_LAB.md` for full design, commands, and evidence scope.
+New lab files: `tools/pxe-test/handoff.py`, `tools/pxe-test/handoff/` native helper,
+EFI proof and chainloader, `Dockerfile.handoff`, `Dockerfile.ubuntu`, and
+`compose.handoff-test.yml` / `compose.ubuntu-test.yml`. `network_winpe.py` now
+supports `--handoff`, `--missing-stage`, `--invalid-stage`, and `--ubuntu-iso`.
+
+The generated capsule contains root SETUP.EXE, STAGE.CMD, deployment.json,
+HANDOFF.EXE, and runtime files. A uniquely marked GPT/FAT lab disk is created
+by the host; WinPE never partitions or formats a disk. Native verification checks
+copied bytes and AMD64 EFI PE headers before firmware operations. BootNext is
+one-time; BootOrder is never written. Existing BootNext/audit entries are refused.
+Only disposable guest firmware and staging storage are changed.
+
+The basic handoff and full Ubuntu boot chain have both passed independently. The live source ISO is attached read-only. GRUB loads its
+original Casper kernel/initrd. No installation or autoinstall is requested.
+The positive Ubuntu condition requires the actual installer welcome screen, not merely
+GRUB or a kernel banner. No production capsule API/build queue is implemented.
+
+Minimal WinPE does not include findstr; discovery now uses built-in for /f.
+The first two handoff diagnostic attempts were stopped and retained separately.
+Use the case-specific handoff/UEFI markers; the old exit-37 test markers are not
+expected when executing a real capsule handoff script.
+
+Images: trixie base (QEMU 10.0.11 / OVMF 2025.02), handoff, and Ubuntu lab images.
+Ubuntu image adds x86-64 GRUB modules to the ARM64 build environment.
+Inputs: read-only Windows ISO and `ubuntu-26.04.1-live-server-amd64.iso`, both under
+`/media/sf_Downloads/_torrents_done/`. wimboot remains pinned in lab downloads.
+
+## Disk cleanup and dashboard
+
+User-requested cleanup recovered about 4.5 GiB: free space rose from 831 MiB to
+5.3 GiB. Removed unused Docker build cache and obsolete Bookworm pxe-test:latest.
+Current images, appliance containers/data volumes, and source ISOs were preserved.
+Large completed pcaps were trimmed to initial complete packet records in
+`network-prefix.pcap.gz`; `capture-retention.json` records full original hashes,
+sizes, and the truncation. Full original captures for those runs are gone.
+Reports, HTTP digests, serial/debug logs, QMP events, capsules, and firmware remain.
+After the final Ubuntu run and dashboard rebuild, free space is 5.2 GiB and lab
+artifacts total 264 MiB. The four newest large captures were losslessly gzipped
+and their decompressed SHA-256 verified before removing the uncompressed copies,
+recovering 98,343,923 bytes. Their retention records explicitly say full capture
+retained. This differs from the earlier prefix-only retention described above.
+The temporary extracted Subiquity snap was removed. The new web build cache was
+pruned (Docker reported 567.9 MB); appliance volumes and lab images remain.
+Final API health: status/database/Redis OK, worker online, storage read-only.
+Only the five appliance containers remain running; no QEMU test guest remains.
+
+Dashboard and PXE Integration now display recorded lab results with date,
+duration, evidence details, the automatic Ubuntu pass, and remaining milestones. Build and four browser tests
+passed; live desktop/mobile checks passed. The running web container was rebuilt. Dashboard is http://127.0.0.1:80/ inside the
+VM; the former port 5173 preview is no longer running. Port 80 was not changed
+by the most recent dashboard update.
+The follow-up dashboard update makes the automatic boot-chain pass prominent,
+updates the Heimdal integration banner beyond the old launcher-only result, and
+states that app capsule generation is next. Build and all four browser tests
+passed; live Dashboard/PXE Integration wording, disabled publishing, and mobile
+layout were verified. Web was rebuilt on port 80 and its build cache removed.
+
+GitHub authentication is configured. The shutdown checkpoint following `cebd798`
+includes the latest dashboard, lab harness, test documentation, and agreed next
+steps. The user requested Git synchronization before shutting down. On resume,
+check `git status --short` and fetch origin to confirm branch synchronization.
+No force push/reset. ISO inputs, local configuration, Docker data, and detailed
+lab artifacts are intentionally excluded from Git and remain on this machine.
+The shutdown check found no QEMU guest running; only appliance services remain.
+Use a normal OS shutdown to stop those services cleanly.
+
+## Remaining scope
+
+The authorized lab milestone and negative controls are complete. The user confirmed
+this next-step sequence and asked to record it in the handoff:
+
+1. Implement the production capsule builder: generate a capsule from a selected
+   library ISO and save it on configured external storage.
+2. Connect generation to the dashboard with job progress and download/output
+   details.
+3. Run the existing harness against the app-generated capsule to verify the
+   complete boot chain, retaining reports and evidence.
+4. Once that passes, test the resulting capsule through actual Heimdal deployment.
+
+The lab boot chain is proven; app-generated capsules and actual Heimdal deployment
+are not yet validated. Keep the lab-only helpers distinct from production
+firmware/runtime code. Physical
+targets, Secure Boot, installation to disk, and actual Heimdal integration remain
+unverified. Publish/create-capsule controls remain disabled until their backend
+implementation exists; do not mark individual library ISOs validated from these
+recorded lab results.
+The user expects continued work, not a request to resume after each test.
+
+---
+
+# Historical unattended WinPE PXE pass — 2026-09-06
 
 ## Current outcome
 

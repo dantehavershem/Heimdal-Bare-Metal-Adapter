@@ -10,6 +10,10 @@ import struct
 import subprocess
 import sys
 import time
+import socket
+import select
+import re
+from serial_terminal import Terminal
 from pathlib import Path
 
 from run import build
@@ -78,13 +82,34 @@ def resource(path, offset=0, size=None):
             'size': path.stat().st_size if size is None else size}
 
 
+def ubuntu_reached(serial):
+    # Kernel/systemd banners alone are insufficient: require login or installer UI.
+    plain = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', serial)
+    ui = (('Welcome!' in plain and 'English' in plain) or
+          ('As the installer is running on a serial console' in plain and
+           'Continue in basic mode' in plain and 'Continue in rich mode' in plain))
+    return 'BMA_UBUNTU_GRUB_STARTED' in plain and 'Ubuntu' in plain and ui and 'Linux version ' in plain
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--iso', type=Path, default=Path('/winpe.iso'))
     parser.add_argument('--wimboot', type=Path, default=Path('/output/downloads/wimboot'))
     parser.add_argument('--missing-wim', action='store_true')
+    parser.add_argument('--handoff', action='store_true')
+    parser.add_argument('--ubuntu-iso', type=Path)
+    parser.add_argument('--missing-stage', action='store_true')
+    parser.add_argument('--invalid-stage', action='store_true')
     parser.add_argument('--timeout', type=int, default=1800)
     args = parser.parse_args()
+    if args.invalid_stage and (not args.handoff or args.missing_stage or args.ubuntu_iso):
+        parser.error('--invalid-stage requires --handoff and cannot combine with other cases')
+    if args.ubuntu_iso and (not args.handoff or args.missing_stage or not args.ubuntu_iso.is_file()):
+        parser.error('--ubuntu-iso requires --handoff, an existing source ISO, and no --missing-stage')
+    if args.missing_stage and not args.handoff:
+        parser.error('--missing-stage requires --handoff')
+    if args.handoff and args.missing_wim:
+        parser.error('--handoff cannot be combined with --missing-wim')
     if args.timeout <= 0:
         parser.error('--timeout must be positive')
     mem = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
@@ -147,6 +172,10 @@ exit /b
 echo Serial preparation failed; launcher test not started.
 cmd /k
 '''
+    if args.handoff:
+        import handoff
+        capsule_start = handoff.prepare(output, payload, args.missing_stage, args.ubuntu_iso, args.invalid_stage)
+        startup = startup.replace('call "%SYSTEMROOT%\\System32\\RUN-TEST.CMD"', capsule_start)
     (payload / 'lab-start.cmd').write_bytes(startup.replace('\n', '\r\n').encode())
     (payload / 'winpeshl.ini').write_bytes(
         b'[LaunchApps]\r\n%SYSTEMROOT%\\System32\\cmd.exe, /d /c %SYSTEMROOT%\\System32\\lab-start.cmd\r\n')
@@ -168,9 +197,22 @@ cmd /k
                '-drive', f'if=pflash,format=raw,readonly=on,file={firmware}',
                '-drive', f'if=pflash,format=raw,file={output / "vars.fd"}',
                '-boot', 'order=n,strict=on', '-netdev', net, '-device', 'e1000,netdev=net0',
-               '-object', f'filter-dump,id=capture,netdev=net0,file={output / "network.pcap"},maxlen=512',
+               '-object', f'filter-dump,id=capture,netdev=net0,file={output / "network.pcap"},maxlen={128 if args.handoff else 512}',
                '-display', 'none', '-qmp', f'unix:{output / "qmp.sock"},server=on,wait=off',
                '-monitor', 'none', '-serial', f'file:{output / "serial.log"}', '-no-reboot']
+    if args.handoff:
+        command[command.index('order=n,strict=on')] = 'strict=on'
+        command[command.index('e1000,netdev=net0')] = 'e1000,netdev=net0,bootindex=1'
+        command.remove('-no-reboot')
+        command.extend(['-qmp', f'unix:{output / "qmp-control.sock"},server=on,wait=off',
+                        '-drive', f'if=ide,format=raw,file={output / "staging.raw"}',
+                        '-drive', f'if=ide,media=cdrom,readonly=on,file={output / "capsule.iso"}',
+                        '-chardev', f'file,id=debug,path={output / "debug.log"}',
+                        '-device', 'isa-debugcon,iobase=0xe9,chardev=debug',
+                        '-device', 'isa-debug-exit,iobase=0xf4,iosize=0x04'])
+    if args.ubuntu_iso:
+        command[command.index(f'file:{output / "serial.log"}')] = f'unix:{output / "serial.sock"},server=on,wait=off'
+        command.extend(['-drive', f'if=ide,media=cdrom,readonly=on,file={args.ubuntu_iso}'])
     runtime = {'packages': subprocess.check_output(['dpkg-query', '-W', 'qemu-system-x86', 'ovmf', 'ipxe'], text=True).strip(),
                'iso_size': args.iso.stat().st_size, 'boot_wim_size': wim['size'], 'artifacts': artifacts,
                'sha256': {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in
@@ -183,21 +225,78 @@ cmd /k
     report = {'passed': False, 'case': 'missing-wim' if args.missing_wim else 'network-boot',
               'scope': 'Diskless WinPE over PXE/TFTP and iPXE/HTTP, executing actual SETUP.EXE',
               'not_tested': ['Heimdal integration', 'WinPE-to-UEFI handoff', 'Ubuntu boot', 'Secure Boot']}
+    if args.handoff:
+        report.update(case='invalid-stage' if args.invalid_stage else 'missing-stage' if args.missing_stage else 'uefi-handoff',
+                      scope='Generated lab capsule: PXE WinPE launcher to one-time UEFI proof',
+                      not_tested=['Heimdal integration', 'Ubuntu boot', 'Secure Boot', 'production capsule builder'])
+    if args.ubuntu_iso:
+        report.update(case='ubuntu-handoff', scope='Lab capsule WinPE BootNext handoff to Ubuntu live userspace',
+                      not_tested=['Heimdal integration', 'installation to disk', 'Secure Boot', 'production capsule builder'])
     def interrupted(signum, _):
         raise InterruptedError(f'Test interrupted by signal {signum}')
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     process = None
+    qmp = None
+    serial_socket = None
+    serial_output = None
+    terminal = Terminal()
+    terminal_replies = 0
+    qmp_buffer = b''
+    events = []
     try:
         with (output / 'qemu.log').open('w') as log:
             process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
+            if args.ubuntu_iso:
+                serial_socket = socket.socket(socket.AF_UNIX)
+                for _ in range(100):
+                    try:
+                        serial_socket.connect(str(output/'serial.sock'))
+                        break
+                    except (FileNotFoundError, ConnectionRefusedError):
+                        time.sleep(0.1)
+                else:
+                    raise RuntimeError('Serial socket did not become available')
+                serial_output = (output/'serial.log').open('wb', buffering=0)
+            if args.handoff:
+                qmp = socket.socket(socket.AF_UNIX)
+                for _ in range(100):
+                    try:
+                        qmp.connect(str(output/'qmp.sock'))
+                        break
+                    except (FileNotFoundError, ConnectionRefusedError):
+                        time.sleep(0.1)
+                else:
+                    raise RuntimeError('QMP did not become available')
+                qmp.sendall(b'{"execute":"qmp_capabilities"}\n')
             negative_seen = None
             while process.poll() is None:
+                if serial_socket and select.select([serial_socket], [], [], 0)[0]:
+                    data = serial_socket.recv(65536)
+                    serial_output.write(data)
+                    reply = terminal.replies(data)
+                    if reply:
+                        serial_socket.sendall(reply)
+                        terminal_replies += 1
+                if qmp and select.select([qmp], [], [], 0)[0]:
+                    qmp_buffer += qmp.recv(65536)
+                    while b'\n' in qmp_buffer:
+                        line, qmp_buffer = qmp_buffer.split(b'\n', 1)
+                        obj = json.loads(line)
+                        if 'event' in obj:
+                            events.append(obj)
                 serial_path = output / 'serial.log'
                 serial = serial_path.read_text(errors='replace') if serial_path.exists() else ''
                 http = requests(output / 'http.jsonl')
                 markers = {marker: marker in serial for marker in MARKERS}
-                if args.missing_wim:
+                if args.handoff:
+                    if args.missing_stage and 'BMA_HANDOFF_REJECTED_MISSING' in serial:
+                        break
+                    if args.invalid_stage and 'BMA_HANDOFF_FAILED code=035' in serial and 'BMA_HANDOFF_CAPSULE_EXIT_66' in serial:
+                        break
+                    if args.ubuntu_iso and ubuntu_reached(serial):
+                        break
+                elif args.missing_wim:
                     missing = any(r['path'] == '/missing.wim' and r['status'] == 404 and r['completed'] for r in http)
                     if missing and negative_seen is None:
                         negative_seen = time.monotonic()
@@ -211,7 +310,8 @@ cmd /k
                     raise TimeoutError(f'WinPE PXE test exceeded {args.timeout}-second bound')
                 time.sleep(1)
             else:
-                raise RuntimeError(f'QEMU exited before completion: {process.returncode}')
+                if not (args.handoff and not args.missing_stage and process.returncode == 33):
+                    raise RuntimeError(f'QEMU exited before completion: {process.returncode}')
     except Exception as error:
         report['error'] = str(error)
     finally:
@@ -221,6 +321,16 @@ cmd /k
                 process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 process.kill(); process.wait()
+        if serial_socket:
+            serial_socket.close()
+        if serial_output:
+            serial_output.close()
+        if args.ubuntu_iso:
+            report['terminal_response_batches'] = terminal_replies
+        if qmp:
+            qmp.close()
+        if args.handoff:
+            (output/'qmp-events.json').write_text(json.dumps(events, indent=2)+'\n')
         http = requests(output / 'http.jsonl')
         serial_path = output / 'serial.log'
         serial = serial_path.read_text(errors='replace') if serial_path.exists() else ''
@@ -235,6 +345,27 @@ cmd /k
                        and all(transfers.values()) and not any(marker_evidence.values()))
         else:
             case_ok = all(marker_evidence.values()) and all(transfers.values())
+        if args.handoff:
+            debug = (output/'debug.log').read_text(errors='replace') if (output/'debug.log').exists() else ''
+            reboot_events = [e for e in events if e['event']=='RESET' and e.get('data', {}).get('guest')]
+            report['guest_resets'] = len(reboot_events)
+            report['handoff_markers'] = {m:m in serial for m in handoff.MARKERS}
+            report['uefi_markers'] = {m:m in debug for m in handoff.PROOF_MARKERS}
+            if args.invalid_stage:
+                case_ok = ('BMA_HANDOFF_FAILED code=035' in serial and 'BMA_HANDOFF_CAPSULE_EXIT_66' in serial
+                           and not any(report['handoff_markers'].values()) and not any(report['uefi_markers'].values())
+                           and not reboot_events and all(transfers.values()))
+            elif args.missing_stage:
+                case_ok = ('BMA_HANDOFF_REJECTED_MISSING' in serial and not any(report['handoff_markers'].values())
+                           and not any(report['uefi_markers'].values()) and not reboot_events and all(transfers.values()))
+            elif args.ubuntu_iso:
+                report['ubuntu_userspace_reached'] = ubuntu_reached(serial)
+                case_ok = (all(report['handoff_markers'].values()) and all(report['uefi_markers'].values())
+                           and 'BMA_UBUNTU_GRUB_LOADED' in debug and len(reboot_events)==1
+                           and all(transfers.values()) and ubuntu_reached(serial))
+            else:
+                case_ok = (all(report['handoff_markers'].values()) and all(report['uefi_markers'].values())
+                           and len(reboot_events)==1 and all(transfers.values()) and process.returncode==33)
         report.update(passed=base_ok and case_ok and 'error' not in report,
                       markers=marker_evidence, network=network, http_transfers=transfers,
                       elapsed_seconds=round(time.monotonic() - started, 1))

@@ -1,0 +1,14 @@
+LIBRARY KERNEL32.dll
+EXPORTS
+GetCurrentProcess
+GetLastError
+SetLastError
+GetFirmwareEnvironmentVariableW
+SetFirmwareEnvironmentVariableExW
+CreateFileW
+ReadFile
+WriteFile
+CloseHandle
+ExitProcess
+GetEnvironmentVariableW
+GetFileAttributesW

@@ -1,0 +1,2 @@
+FROM heimdal-bare-metal-adapter-pxe-test:trixie
+RUN apt-get update && apt-get install -y --no-install-recommends dosfstools mtools xorriso gnu-efi grub-common && rm -rf /var/lib/apt/lists/*

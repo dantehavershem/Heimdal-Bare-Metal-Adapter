@@ -1,0 +1,2 @@
+FROM heimdal-bare-metal-adapter-pxe-test:handoff
+RUN dpkg --add-architecture amd64 && apt-get update && cd /tmp && apt-get download grub-efi-amd64-bin:amd64 && dpkg-deb -x grub-efi-amd64-bin_*.deb / && rm grub-efi-amd64-bin_*.deb && rm -rf /var/lib/apt/lists/*

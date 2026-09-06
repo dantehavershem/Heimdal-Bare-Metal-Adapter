@@ -1201,3 +1201,29 @@ fieldset {
     scroll-behavior: auto !important;
   }
 }
+
+.lab-validation {
+  margin: 22px 0;
+}
+.lab-validation h3 {
+  margin: 12px 0 8px;
+}
+.lab-validation p,
+.lab-validation dd {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.lab-validation summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.lab-validation dt {
+  margin-top: 14px;
+  font-weight: 600;
+}
+.lab-validation dd {
+  margin: 6px 0 0;
+}
+.lab-validation code {
+  overflow-wrap: anywhere;
+}

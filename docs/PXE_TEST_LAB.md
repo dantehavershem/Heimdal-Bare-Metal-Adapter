@@ -265,3 +265,10 @@ whole-response digests, not a publisher authenticity verification of the ISO.
 This proves the isolated UEFI PXE -> iPXE/HTTP -> WinPE -> actual launcher path.
 It does not yet prove generated deployment capsules, WinPE-to-UEFI handoff,
 Ubuntu boot, Secure Boot, physical hardware, or integration with Heimdal's server.
+
+
+## Next-stage handoff lab
+
+The generated capsule and one-time WinPE-to-UEFI reboot test are documented in
+[HANDOFF_TEST_LAB.md](HANDOFF_TEST_LAB.md). The independent diskless launcher test
+above remains available without `--handoff`.
