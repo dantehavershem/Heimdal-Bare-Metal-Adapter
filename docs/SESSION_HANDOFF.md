@@ -138,6 +138,34 @@ lab artifacts are intentionally excluded from Git and remain on this machine.
 The shutdown check found no QEMU guest running; only appliance services remain.
 Use a normal OS shutdown to stop those services cleanly.
 
+## Product direction clarified by the user
+
+The product must bridge the gap between a supplied ISO and a working Heimdal
+deployment. It is not limited to classifying media or passing through images
+that already fit the current boot path. An unsupported result identifies a
+missing adapter today, not the intended product boundary. Build the necessary
+adapter where technically feasible; explain concrete limitations where it is not.
+Do not promise that every ISO can work on every target.
+
+Hiren's BootCD PE is a concrete intended use case: identify its boot requirements,
+package its WinPE image and supporting files, provide the appropriate boot
+process, and verify that its desktop and bundled tools are usable. Success for
+recovery media means a working recovery environment, not an OS installation.
+A kernel, launcher, or desktop appearing alone is insufficient evidence that all
+required tools and resources work. The existing Microsoft WinPE pass does not
+prove Hiren's support; the earlier Hiren's attempt stalled in the older QEMU
+setup and remains unverified.
+
+The harness should prove each adapter produces its intended usable environment,
+then validate the resulting capsule through actual Heimdal deployment. Legacy
+media such as OS/2 may require a separate BIOS path and additional boot media;
+that is an adapter investigation, not a reason to redefine the product around
+only the formats currently supported. This direction informs the production
+capsule-builder sequence below; no new Hiren's or OS/2 test was started today.
+
+The user ended work for the day after requesting this note. Do not start more
+tests in this shutdown checkpoint; resume from this direction next session.
+
 ## Remaining scope
 
 The authorized lab milestone and negative controls are complete. The user confirmed
