@@ -3,10 +3,13 @@ import hashlib, json, os, shutil
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from app.core.db import get_db
-from app.core.config import NAME, STORAGE_ROOT
+from app.core.config import NAME, STORAGE_ROOT, REDIS_URL, STORAGE_READ_ONLY
+from redis import Redis
+from app.services.storage import safe_resolve
+from sqlalchemy.exc import IntegrityError
 from app.models.entities import StorageLocation, Media, Job
 from app.services.iso_inspector import inspect
 
@@ -19,11 +22,28 @@ class AnalyzeRequest(BaseModel):
     storage_id:int; relative_path:str
 
 @router.get("/health")
-def health(): return {"status":"ok","product":NAME,"storage_root":str(STORAGE_ROOT)}
+def health(db:Session=Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    cache = Redis.from_url(REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+    try:
+        cache.ping()
+        worker_online = bool(cache.exists('baremetal:worker:core:heartbeat'))
+    finally:
+        cache.close()
+    return {"status":"ok" if worker_online else "degraded", "product":NAME,
+            "database":"ok", "redis":"ok", "worker":"online" if worker_online else "unavailable",
+            "storage_root":str(STORAGE_ROOT), "storage_read_only":STORAGE_READ_ONLY}
+
+
+def resolve_storage(s, relative="."):
+    if not s.enabled: raise HTTPException(409, "Storage location is disabled")
+    try: return safe_resolve(s.path, relative)
+    except ValueError as e: raise HTTPException(400, str(e))
+    except OSError as e: raise HTTPException(409, "Storage location is not accessible") from e
 
 @router.get("/capabilities")
 def capabilities():
-    return {"media":{"iso_analysis":True,"wrapper_build":"stage-1","image_conversion":"profile"},
+    return {"media":{"iso_analysis":True,"wrapper_build":"unavailable","image_conversion":"profile"},
             "bare_metal":{"capture":"scaffolded","deploy":"scaffolded","golden_images":"scaffolded"},
             "pxe":{"heimdal_adapter":"stage-1","standalone":"optional-profile"},
             "storage":{"external_first":True,"types":["mounted","smb","nfs","local","s3-planned"]}}
@@ -36,7 +56,16 @@ def storage_list(db:Session=Depends(get_db)):
 def storage_create(req:StorageCreate,db:Session=Depends(get_db)):
     p=Path(req.path)
     if not p.is_absolute(): raise HTTPException(400,"Storage path must be absolute inside appliance, e.g. /storage/iso")
-    s=StorageLocation(**req.model_dump()); db.add(s); db.commit(); db.refresh(s)
+    try:
+        safe_resolve(req.path)
+    except (ValueError, OSError) as e:
+        raise HTTPException(400, str(e))
+    s=StorageLocation(**req.model_dump()); db.add(s)
+    try: db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "A storage location with that name already exists")
+    db.refresh(s)
     return {"id":s.id,"name":s.name,"path":s.path}
 
 
@@ -44,16 +73,17 @@ def storage_create(req:StorageCreate,db:Session=Depends(get_db)):
 def storage_status(storage_id:int,db:Session=Depends(get_db)):
     s=db.get(StorageLocation,storage_id)
     if not s: raise HTTPException(404,"Storage location not found")
-    p=Path(s.path)
-    if not p.exists(): return {"id":s.id,"online":False,"path":s.path}
+    try: p=resolve_storage(s)
+    except HTTPException: return {"id":s.id,"online":False,"path":s.path}
     usage=shutil.disk_usage(p)
     return {"id":s.id,"online":True,"path":s.path,"total_bytes":usage.total,"used_bytes":usage.used,"free_bytes":usage.free}
 
 @router.post("/media/upload")
 def media_upload(storage_id:int,relative_dir:str="",file:UploadFile=File(...),db:Session=Depends(get_db)):
+    if STORAGE_READ_ONLY: raise HTTPException(403,"This media library is read-only; analyze an existing file instead")
     s=db.get(StorageLocation,storage_id)
     if not s: raise HTTPException(404,"Storage location not found")
-    root=Path(s.path).resolve(); target_dir=(root/relative_dir).resolve()
+    root=resolve_storage(s); target_dir=resolve_storage(s, relative_dir or ".")
     if root != target_dir and root not in target_dir.parents: raise HTTPException(400,"Path escape blocked")
     target_dir.mkdir(parents=True,exist_ok=True)
     safe_name=Path(file.filename or "upload.iso").name
@@ -76,10 +106,10 @@ def media_list(db:Session=Depends(get_db)):
 def analyze_media(req:AnalyzeRequest,db:Session=Depends(get_db)):
     s=db.get(StorageLocation,req.storage_id)
     if not s: raise HTTPException(404,"Storage location not found")
-    root=Path(s.path).resolve(); path=(root/req.relative_path).resolve()
+    root=resolve_storage(s); path=resolve_storage(s, req.relative_path)
     if root != path and root not in path.parents: raise HTTPException(400,"Path escape blocked")
     if not path.is_file(): raise HTTPException(404,"Media file not found")
-    job=Job(kind="analyze-iso",payload_json=json.dumps({"storage_id":s.id,"path":str(path),"relative_path":req.relative_path}))
+    job=Job(kind="analyze-iso",payload_json=json.dumps({"storage_id":s.id,"path":str(path),"relative_path":str(path.relative_to(root))}))
     db.add(job); db.commit(); db.refresh(job)
     return {"job_id":job.id,"status":job.status}
 

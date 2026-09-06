@@ -76,13 +76,21 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     SystemTable->ConOut->OutputString(SystemTable->ConOut,
         (CHAR16*)L"Bare-Metal Adapter\r\n\r\n");
     SystemTable->ConOut->OutputString(SystemTable->ConOut,
-        (CHAR16*)L"STAGE 1 HANDOFF SUCCESSFUL\r\n\r\n");
+        (CHAR16*)L"UEFI PROOF PAYLOAD REACHED\r\n\r\n");
     SystemTable->ConOut->OutputString(SystemTable->ConOut,
-        (CHAR16*)L"Heimdal WinPE -> setup.exe -> UEFI payload works.\r\n");
+        (CHAR16*)L"This payload alone does not validate the Heimdal or WinPE handoff.\r\n");
     SystemTable->ConOut->OutputString(SystemTable->ConOut,
         (CHAR16*)L"This proof payload intentionally stops here.\r\n\r\n");
     SystemTable->ConOut->OutputString(SystemTable->ConOut,
         (CHAR16*)L"Power off the test VM to continue development.\r\n");
+#ifdef PXE_TEST
+    /* Test-only telemetry; never included in the ordinary proof payload. */
+    const char *marker = "BMA_PXE_UEFI_REACHED\n";
+    while (*marker) {
+        __asm__ __volatile__("outb %0, %1" : : "a"((UINT8)*marker++), "Nd"((UINT16)0xe9));
+    }
+    __asm__ __volatile__("outb %0, %1" : : "a"((UINT8)0x10), "Nd"((UINT16)0xf4));
+#endif
     for (;;) { __asm__ __volatile__("hlt"); }
     return EFI_SUCCESS;
 }

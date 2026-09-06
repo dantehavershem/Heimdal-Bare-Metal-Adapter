@@ -1,0 +1,7 @@
+# Optional memory override for the WinPE ISO guest.
+services:
+  pxe-test:
+    mem_limit: 5g
+    memswap_limit: 6g
+    tmpfs:
+      - /var/tmp:size=256m

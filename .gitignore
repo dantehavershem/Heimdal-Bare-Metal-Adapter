@@ -34,3 +34,11 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# Frontend verification output
+*.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/
+
+# Isolated PXE test artifacts
+artifacts/pxe-test/

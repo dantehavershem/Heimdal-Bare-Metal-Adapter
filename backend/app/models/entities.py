@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Text, ForeignKey, Boolean
+from sqlalchemy import String, Integer, BigInteger, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 
@@ -21,7 +21,7 @@ class Media(Base):
     relative_path: Mapped[str] = mapped_column(String(2048))
     name: Mapped[str] = mapped_column(String(512))
     media_type: Mapped[str] = mapped_column(String(64), default="unknown")
-    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -1,0 +1,7 @@
+# Isolated comparison image; use after the PXE and WinPE Compose files.
+services:
+  pxe-test:
+    image: heimdal-bare-metal-adapter-pxe-test:trixie
+    build:
+      args:
+        BASE_IMAGE: debian:trixie-slim

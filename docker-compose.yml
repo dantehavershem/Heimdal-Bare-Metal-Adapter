@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: baremetal
       POSTGRES_USER: baremetal
-      POSTGRES_PASSWORD: baremetal
+      POSTGRES_PASSWORD: ${BAREMETAL_ADAPTER_DB_PASSWORD:?Set BAREMETAL_ADAPTER_DB_PASSWORD in .env}
     volumes:
       - db:/var/lib/postgresql/data
     healthcheck:
@@ -19,6 +19,11 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
   api:
@@ -27,11 +32,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - ${BAREMETAL_ADAPTER_STORAGE_HOST:-./storage}:/storage
+      - type: bind
+        source: ${BAREMETAL_ADAPTER_STORAGE_HOST:?Set an existing external storage path}
+        target: /storage
+        read_only: ${BAREMETAL_ADAPTER_STORAGE_READ_ONLY:-false}
+        bind:
+          create_host_path: false
       - scratch:/scratch
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     restart: unless-stopped
 
   worker:
@@ -41,17 +58,25 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - ${BAREMETAL_ADAPTER_STORAGE_HOST:-./storage}:/storage
+      - type: bind
+        source: ${BAREMETAL_ADAPTER_STORAGE_HOST:?Set an existing external storage path}
+        target: /storage
+        read_only: ${BAREMETAL_ADAPTER_STORAGE_READ_ONLY:-false}
+        bind:
+          create_host_path: false
       - scratch:/scratch
     restart: unless-stopped
 
   web:
     build: ./frontend
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
-      - "80:80"
+      - "127.0.0.1:80:80"
     restart: unless-stopped
 
   # Optional future conversion worker. Kept out of the default footprint.
@@ -61,7 +86,12 @@ services:
     command: ["python", "-m", "app.workers.runner", "--capability", "conversion"]
     env_file: .env
     volumes:
-      - ${BAREMETAL_ADAPTER_STORAGE_HOST:-./storage}:/storage
+      - type: bind
+        source: ${BAREMETAL_ADAPTER_STORAGE_HOST:?Set an existing external storage path}
+        target: /storage
+        read_only: ${BAREMETAL_ADAPTER_STORAGE_READ_ONLY:-false}
+        bind:
+          create_host_path: false
       - scratch:/scratch
     restart: unless-stopped
 
