@@ -26,8 +26,8 @@ import "./style.css";
 
 type Page =
   | "Dashboard"
-  | "Installer ISOs"
-  | "Golden Images"
+  | "Image Library"
+  | "Golden Image Deployment"
   | "Driver Packs"
   | "Build Capsule"
   | "Jobs"
@@ -77,8 +77,7 @@ const groups: { label: string; items: [Page, LucideIcon][] }[] = [
   {
     label: "Media",
     items: [
-      ["Installer ISOs", Disc3],
-      ["Golden Images", Layers],
+      ["Image Library", Disc3],
       ["Driver Packs", HardDrive],
     ],
   },
@@ -86,6 +85,7 @@ const groups: { label: string; items: [Page, LucideIcon][] }[] = [
     label: "Build & deploy",
     items: [
       ["Build Capsule", Box],
+      ["Golden Image Deployment", Layers],
       ["Jobs", Activity],
       ["PXE Integration", Network],
     ],
@@ -94,8 +94,8 @@ const groups: { label: string; items: [Page, LucideIcon][] }[] = [
 ];
 const subtitles: Record<Page, string> = {
   Dashboard: "Control plane overview and deployment readiness",
-  "Installer ISOs": "Register, inspect and organize bootable media",
-  "Golden Images": "Reference images for repeatable bare-metal deployment",
+  "Image Library": "Register, inspect and organize deployment images",
+  "Golden Image Deployment": "Reference images for repeatable bare-metal deployment",
   "Driver Packs": "Hardware-aware drivers for deployment specialization",
   "Build Capsule": "Prepare media for Heimdal Network OS Deployment",
   Jobs: "Follow media processing and inspect job logs",
@@ -217,10 +217,10 @@ function LabValidation() {
           <Badge>Unverified</Badge>
           <h3>Heimdal integration</h3>
           <p>Validation through the actual Heimdal deployment process is still pending.</p>
-          <p>Next: add capsule generation to the app, then test the generated capsule through Heimdal.</p>
+          <p>Next: build a Windows golden-image capsule from a customer WIM, validate it in the harness, then through Heimdal.</p>
         </div>
       </div>
-      <p className="help">These recorded lab results do not validate individual library ISOs, physical hardware, or Secure Boot. They are not a live readiness check.</p>
+      <p className="help">These recorded lab results do not validate individual library images, physical hardware, or Secure Boot. They are not a live readiness check.</p>
       <details>
         <summary>View recorded test evidence</summary>
         <dl>
@@ -472,7 +472,7 @@ function App() {
               <RefreshCw size={17} className={refreshing ? "spin" : ""} />
             </button>
             <button className="primary" onClick={() => setModal(true)}>
-              <Plus size={16} /> Add ISO
+              <Plus size={16} /> Add image
             </button>
           </div>
         </header>
@@ -498,18 +498,18 @@ function App() {
                 <div>
                   <div className="eyebrow">YOUR DEPLOYMENT CONTROL CENTER</div>
                   <h2>
-                    From bootable media{" "}
+                    From deployment images{" "}
                     <br />
                     to bare-metal deployment.
                   </h2>
                   <p>
-                    One workspace to inspect installers, prepare deployment
-                    capsules, and manage the media behind your Heimdal
+                    One workspace to inspect images, prepare deployment
+                    capsules, and manage the images behind your Heimdal
                     workflows.
                   </p>
                   <div className="button-row">
                     <button className="primary" onClick={() => setModal(true)}>
-                      <Plus size={16} /> Add deployment media
+                      <Plus size={16} /> Add deployment image
                     </button>
                     <button
                       className="hero-button"
@@ -521,7 +521,7 @@ function App() {
                 </div>
                 <div className="hero-stats">
                   {[
-                    ["Media objects", number(media.length)],
+                    ["Images", number(media.length)],
                     ["Storage locations", number(stores.length)],
                     ["Active jobs", number(active)],
                     [
@@ -541,7 +541,7 @@ function App() {
               <LabValidation />
               <Heading
                 title="Your deployment workflow"
-                description="Start with a storage location, then inspect your first installer."
+                description="Start with a storage location, then inspect your first image."
               />
               <div className="grid three">
                 {[
@@ -555,9 +555,9 @@ function App() {
                   {
                     n: "02",
                     icon: Disc3,
-                    title: "Inspect installer media",
+                    title: "Inspect deployment images",
                     text: "Discover boot structures and review candidate deployment adapters.",
-                    page: "Installer ISOs" as Page,
+                    page: "Image Library" as Page,
                   },
                   {
                     n: "03",
@@ -614,7 +614,7 @@ function App() {
                     Control plane in the VM. Media on your storage.
                   </strong>
                   <p>
-                    Installer ISOs, reference images, and future build outputs
+                    Deployment images and future build outputs
                     belong in your external library.
                   </p>
                 </div>
@@ -624,14 +624,14 @@ function App() {
               </div>
             </>
           )}
-          {page === "Installer ISOs" && (
+          {page === "Image Library" && (
             <>
               <Heading
-                title="Installer ISO library"
-                description="Inspect files already on a share, or upload a local ISO."
+                title="Image Library"
+                description="Inspect deployment images on a share or upload a file. ISO inspection is available; WIM support is planned."
                 action={
                   <button className="primary" onClick={() => setModal(true)}>
-                    <Plus size={16} /> Add ISO
+                    <Plus size={16} /> Add image
                   </button>
                 }
               />
@@ -639,7 +639,7 @@ function App() {
                 <span className="tile-icon">
                   <Upload size={26} />
                 </span>
-                <h3>Add your deployment media</h3>
+                <h3>Add your deployment image</h3>
                 <p>
                   Select an ISO file or register an existing file on mounted
                   storage.
@@ -650,13 +650,13 @@ function App() {
               </button>
               <div className="section-heading">
                 <h2>
-                  Registered media{" "}
+                  Registered images{" "}
                   <span className="count">{number(media.length)}</span>
                 </h2>
                 <label className="search">
                   <Search size={16} />
                   <input
-                    aria-label="Search media"
+                    aria-label="Search images"
                     placeholder="Search your library…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -668,7 +668,7 @@ function App() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Media</th>
+                        <th>Image</th>
                         <th>Size</th>
                         <th>Architecture</th>
                         <th>Candidate adapter</th>
@@ -733,7 +733,7 @@ function App() {
                   {!media.some((m) =>
                     m.name.toLowerCase().includes(search.toLowerCase()),
                   ) && (
-                    <p className="no-results">No media matches “{search}”.</p>
+                    <p className="no-results">No images match “{search}”.</p>
                   )}
                 </div>
               ) : (
@@ -741,7 +741,7 @@ function App() {
                   <Empty
                     title={
                       loaded
-                        ? "Your library is ready for its first ISO"
+                        ? "Your library is ready for its first image"
                         : "Library data unavailable"
                     }
                   >
@@ -783,7 +783,7 @@ function App() {
                 <div className="grid analysis-layout">
                   <section className="panel">
                     <label className="field">
-                      Source media
+                      Source image
                       <select
                         value={String(current.id)}
                         onChange={(e) => setSelectedMedia(e.target.value)}
@@ -796,7 +796,7 @@ function App() {
                       </select>
                     </label>
                     <Heading
-                      title="Detected media profile"
+                      title="Detected image profile"
                       description={current.analysis?.volume_id || current.name}
                     />
                     <div className="profile-grid">
@@ -881,7 +881,7 @@ function App() {
                 <section className="panel">
                   <Empty
                     icon={Box}
-                    title="Start with an analyzed ISO"
+                    title="Start with an analyzed image"
                     action={
                       <button
                         className="primary"
@@ -891,7 +891,7 @@ function App() {
                       </button>
                     }
                   >
-                    Add an ISO and complete analysis to review its boot profile
+                    Add an image and complete analysis to review its deployment profile
                     here.
                   </Empty>
                 </section>
@@ -940,36 +940,36 @@ function App() {
               notify={setNotice}
             />
           )}
-          {(page === "Golden Images" || page === "Driver Packs") && (
+          {(page === "Golden Image Deployment" || page === "Driver Packs") && (
             <>
               <Heading
                 title={
-                  page === "Golden Images"
-                    ? "Golden image library"
+                  page === "Golden Image Deployment"
+                    ? "Windows golden-image deployment"
                     : "Driver repository"
                 }
                 action={<Badge tone="orange">Planned capability</Badge>}
               />
               <section className="panel">
                 <Empty
-                  icon={page === "Golden Images" ? Layers : HardDrive}
+                  icon={page === "Golden Image Deployment" ? Layers : HardDrive}
                   title={
-                    page === "Golden Images"
-                      ? "A home for your reference images"
+                    page === "Golden Image Deployment"
+                      ? "Deploy your Windows image through Heimdal"
                       : "Prepare for hardware-aware deployment"
                   }
                 >
-                  {page === "Golden Images"
-                    ? "Capture and reusable image deployment are planned. The capture engine and image library are not available yet."
+                  {page === "Golden Image Deployment"
+                    ? "The first production use case will deploy a customer-prepared, generalized Windows WIM through Heimdal without Configuration Manager (SCCM). WIM import, image application, and capsule generation are planned; they are not available yet."
                     : "Driver imports, hardware matching, and deployment injection are planned. These workflows are not available yet."}
                 </Empty>
               </section>
               <div className="grid three">
-                {(page === "Golden Images"
+                {(page === "Golden Image Deployment"
                   ? [
-                      "Capture a reference machine",
-                      "Store images externally",
-                      "Deploy and specialize",
+                      "Select a generalized WIM",
+                      "Configure deployment and drivers",
+                      "Build a capsule and validate through Heimdal",
                     ]
                   : [
                       "Import vendor packs",
@@ -1343,8 +1343,8 @@ function ImportModal({
           <X size={20} />
         </button>
       </div>
-      <h2 id="import-title">Add deployment ISO</h2>
-      <p>Choose your source. Analysis runs as a background job.</p>
+      <h2 id="import-title">Add deployment image</h2>
+      <p>Choose your source. ISO inspection is currently supported; WIM import and deployment are planned. Analysis runs as a background job.</p>
       {stores.some((s) => s.enabled) ? (
         <form onSubmit={submit}>
           <div className="segmented">

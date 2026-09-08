@@ -1,3 +1,24 @@
+# Latest checkpoint — Image Library terminology deployed — 2026-09-08
+
+The user requested the image-first product direction be reflected in the app and
+handoff. Navigation and entry points now use Image Library and Images. Golden
+Image Deployment is a planned workflow under Build & deploy, not a separate
+library. The first production use case is deploying a customer-prepared generalized
+Windows WIM through Heimdal without Configuration Manager/SCCM. Detailed scope
+and acceptance criteria are recorded below.
+
+Current import/inspection remains ISO-only and the UI states that WIM support and
+production capsule generation are planned. This checkpoint does not implement
+those capabilities or claim new deployment validation.
+
+Validation: frontend build and all four browser tests passed. Live Image Library,
+golden-image scope, and mobile layout were verified on port 80. API, database,
+and Redis are healthy; worker is online and shared storage is read-only. Web was
+rebuilt, and unused build cache was removed. This checkpoint is committed for
+synchronization with origin/main; use git status/fetch to confirm on resume.
+
+---
+
 # Latest handoff — automatic Ubuntu handoff passed — 2026-09-06
 
 ## User direction and active work
@@ -140,12 +161,12 @@ Use a normal OS shutdown to stop those services cleanly.
 
 ## Product direction clarified by the user
 
-The product must bridge the gap between a supplied ISO and a working Heimdal
+The product must bridge the gap between a supplied image and a working Heimdal
 deployment. It is not limited to classifying media or passing through images
 that already fit the current boot path. An unsupported result identifies a
 missing adapter today, not the intended product boundary. Build the necessary
 adapter where technically feasible; explain concrete limitations where it is not.
-Do not promise that every ISO can work on every target.
+Do not promise that every image can work on every target.
 
 Hiren's BootCD PE is a concrete intended use case: identify its boot requirements,
 package its WinPE image and supporting files, provide the appropriate boot
@@ -163,28 +184,51 @@ that is an adapter investigation, not a reason to redefine the product around
 only the formats currently supported. This direction informs the production
 capsule-builder sequence below; no new Hiren's or OS/2 test was started today.
 
-The user ended work for the day after requesting this note. Do not start more
-tests in this shutdown checkpoint; resume from this direction next session.
+## Image model and first production use case
+
+The user clarified that all deployment sources are **Images**. ISO is one format,
+not the top-level product concept. Use **Image Library** in the UI. Keep image
+format (ISO, WIM, and future formats), intended use (OS installation, golden-image
+application, recovery environment), and actual deployment support distinct.
+A recognized file format alone does not establish deployability.
+
+The first production use case is a customer who has a prepared Windows golden
+image and Heimdal, but no Configuration Manager/SCCM. Accept a customer-prepared,
+generalized WIM alongside ISO inputs in the future image model; reference-machine
+capture is not a prerequisite for this use case. The Windows adapter should
+prepare the selected target disk, apply the image, handle required drivers,
+configure boot and recovery, and reboot into Windows to complete setup.
+
+Acceptance: a blank target boots into the customer's deployed Windows image
+through Heimdal, with recorded evidence. The capsule builder and harness must
+validate this outcome, not just a WinPE launch or a firmware handoff.
+
+The user subsequently requested implementing this terminology and direction.
+The UI now uses Image Library and image-oriented entry points; the golden-image
+page describes a deployment workflow rather than a second image library. Actual
+import and inspection remain ISO-only, explicitly stated in the UI. WIM support,
+image application, and production capsule generation are not implemented by this
+terminology update. No new guest boot tests were started for it.
 
 ## Remaining scope
 
-The authorized lab milestone and negative controls are complete. The user confirmed
-this next-step sequence and asked to record it in the handoff:
-
-1. Implement the production capsule builder: generate a capsule from a selected
-   library ISO and save it on configured external storage.
-2. Connect generation to the dashboard with job progress and download/output
+1. Extend image ingestion and inspection to customer-prepared generalized WIM
+   images, keeping format, intended use, and adapter support distinct.
+2. Implement the Windows golden-image adapter and production capsule builder;
+   save generated capsules on configured external storage.
+3. Connect generation to the dashboard with job progress and download/output
    details.
-3. Run the existing harness against the app-generated capsule to verify the
-   complete boot chain, retaining reports and evidence.
-4. Once that passes, test the resulting capsule through actual Heimdal deployment.
+4. Run the existing harness against the app-generated capsule, extending it to
+   verify Windows image application and the installed OS boot on a blank target.
+5. Once the lab acceptance passes, validate that capsule through actual Heimdal
+   deployment. Retain results and evidence for both paths.
 
 The lab boot chain is proven; app-generated capsules and actual Heimdal deployment
 are not yet validated. Keep the lab-only helpers distinct from production
 firmware/runtime code. Physical
 targets, Secure Boot, installation to disk, and actual Heimdal integration remain
 unverified. Publish/create-capsule controls remain disabled until their backend
-implementation exists; do not mark individual library ISOs validated from these
+implementation exists; do not mark individual library images validated from these
 recorded lab results.
 The user expects continued work, not a request to resume after each test.
 
