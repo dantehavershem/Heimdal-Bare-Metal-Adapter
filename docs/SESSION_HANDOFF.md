@@ -1,3 +1,31 @@
+# Latest source check — installation WIM available — 2026-09-09
+
+Read-only metadata inspection of
+`/media/sf_Downloads/_torrents_done/CCSA_X64FRE_DE-DE_DV9.ISO` found
+`/SOURCES/INSTALL.WIM`, with a valid MSWIM header and four XML image entries.
+All identify AMD64, de-DE, and build 26100.7840:
+
+1. Windows 11 Enterprise LTSC 2024 (EnterpriseS).
+2. Windows 11 Enterprise N LTSC 2024 (EnterpriseSN).
+3. Windows 11 IoT Enterprise LTSC (IoTEnterpriseS).
+4. Windows 11 IoT Enterprise LTSC Subscription (IoTEnterpriseSK).
+
+Index 1 is an available baseline for developing image application. This is
+installation-media image metadata, not proof of full payload integrity, successful
+application, or a customer-customized golden image. The user is looking for a
+custom golden WIM for subsequent testing. No full image was extracted or deployed.
+
+Large-file handling needs attention before extraction: the current ISO9660 walker
+reports install.wim at LBA 355771 with length 2,215,025,353 bytes. The valid WIM XML
+is at relative offset 6,509,981,523 with length 11,126, ending at 6,509,992,649 bytes
+(exactly the reported directory length plus 2^32). Do not truncate extraction to
+the current walker length. Resolve and validate the full file size/extents through
+the appropriate optical filesystem metadata before using this source for deployment.
+Header/XML layout was cross-checked against Microsoft's go-winio WIM parser:
+https://github.com/microsoft/go-winio/blob/main/wim/wim.go
+
+---
+
 # Latest checkpoint — Image Library terminology deployed — 2026-09-08
 
 The user requested the image-first product direction be reflected in the app and
