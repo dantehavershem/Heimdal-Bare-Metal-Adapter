@@ -198,40 +198,40 @@ function Heading({
 // Recorded lab evidence; this is not live appliance or per-media readiness.
 function LabValidation() {
   return (
-    <section className="panel lab-validation" aria-label="Recorded lab validation">
+    <section className="lab-validation" aria-label="Recorded lab validation">
       <Heading title="Lab validation" description="ISO boot, Windows WIM and assisted Clonezilla results · 9 September 2026" />
       <div className="grid two">
-        <div>
+        <div className="panel lab-result-card">
           <Badge tone="green">Passed in lab</Badge>
           <h3>PXE → WinPE → launcher</h3>
           <p>Unattended network boot completed in 144.6 seconds. The launcher ran its stage and returned the expected code, 37.</p>
           <p>Missing-image control passed in 17.0 seconds.</p>
         </div>
-        <div>
+        <div className="panel lab-result-card">
           <Badge tone="green">Passed in lab</Badge>
           <h3>Capsule → UEFI → Ubuntu</h3>
           <p>The generated lab capsule completed a one-time UEFI reboot in 175.6 seconds, preserving the normal boot order.</p>
           <p>Ubuntu reached its installer automatically in 17 minutes 26 seconds. Missing and invalid EFI controls passed.</p>
         </div>
-        <div>
+        <div className="panel lab-result-card">
           <Badge tone="green">Passed in lab</Badge>
           <h3>Windows WIM → installed system</h3>
           <p>Applied Windows 11 Enterprise LTSC to a blank virtual disk, configured boot and recovery, and verified the installed system during specialization.</p>
           <p>Completed in 98 minutes 23 seconds with no guest keyboard input. OOBE completion and customer golden images remain untested.</p>
         </div>
-        <div>
+        <div className="panel lab-result-card">
           <Badge>Assisted lab pass</Badge>
           <h3>Clonezilla → save, restore and boot</h3>
           <p>Saved a small bootable fixture, restored it to a separate blank disk, verified its contents, and booted the restored target.</p>
           <p>Console input was required at the reboot prompt. Fully unattended execution and customer OS restoration remain unverified.</p>
         </div>
-        <div>
+        <div className="panel lab-result-card">
           <Badge>Preparation failed</Badge>
           <h3>Windows FFU → capture and restore</h3>
           <p>Windows image application stopped at 49% with DISM error 1392. FFU capture and restoration did not start.</p>
           <p>The source WIM and virtual-disk structure passed subsequent checks. The failure remains unresolved.</p>
         </div>
-        <div>
+        <div className="panel lab-result-card">
           <Badge>Unverified</Badge>
           <h3>Heimdal integration</h3>
           <p>Validation through the actual Heimdal deployment process is still pending.</p>
@@ -239,7 +239,7 @@ function LabValidation() {
         </div>
       </div>
       <p className="help">These recorded lab results do not validate individual library images, physical hardware, or Secure Boot. They are not a live readiness check.</p>
-      <details>
+      <details className="panel">
         <summary>View recorded test evidence</summary>
         <dl>
           <dt>Network boot · passed · 6 September 2026, 00:33:52 UTC</dt>
