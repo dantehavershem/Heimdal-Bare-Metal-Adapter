@@ -1,3 +1,32 @@
+# Latest checkpoint — FFU prepared, Windows media missing — 2026-09-09
+
+User selected FFU as the next format test. Added --ffu to the isolated Windows
+PXE harness, with fresh WIM reference -> FFU capture -> separate blank target
+restore -> target-only installed Windows verification. Eight helper tests pass.
+No FFU test is running and no FFU pass is claimed. Initial launch exited 2 at
+input validation: the prior CCSA_X64FRE_DE-DE_DV9.ISO has disappeared from the
+shared folder. A recursive search found no replacement Windows ISO or WIM.
+Asked user for the new path or restoration. Removed the stopped failed container
+and the empty directory Docker created for the missing source; saved launch logs
+and container metadata in artifacts/pxe-test/ffu-preflight-20260909/.
+No existing disks or source media were modified. Reproduce with the fail-fast
+bind-mount command in docs/FFU_TEST_LAB.md once the ISO is restored.
+
+Product decisions: every Image import is analyzed; plugins supply recognition,
+compatibility checks and deployment methods. An Image may be a multi-file set.
+NT/OS2/BeOS are parked exploratory cases, not implementation priorities. Focus
+on modern Windows ISO, customer golden WIM, FFU, and actual Heimdal delivery.
+Potential future vendor restore adapters: Macrium, Acronis, Veeam, Clonezilla.
+Do not imply generic DISM support for proprietary backup formats.
+
+NT and BeOS inspection was read-only. NT build 782 ISO had no El Torito boot
+entry; its SETUP.TXT and WINNT.EXE explicitly support /B floppy-free setup.
+BeOS CUE described three MODE1/2352 data tracks. Neither deployment was tested.
+Original image-inspection artifacts are ignored in Git. Earlier WIM pass and
+its retained four-file disk chain remain the evidence baseline described below.
+
+---
+
 # Latest checkpoint — Windows WIM baseline passed — 2026-09-09
 
 **Run `winpe-pxe-20260909T123144.006496Z` passed in 5903.1 seconds

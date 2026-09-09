@@ -42,3 +42,7 @@ frontend/playwright-report/
 
 # Isolated PXE test artifacts
 artifacts/pxe-test/
+
+# Image inspection evidence and captured FFUs
+artifacts/image-inspection/
+*.ffu

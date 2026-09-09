@@ -98,11 +98,14 @@ def main():
     parser.add_argument('--missing-wim', action='store_true')
     parser.add_argument('--handoff', action='store_true')
     parser.add_argument('--apply-windows', type=Path, help='External directory for a NEW disposable Windows virtual disk')
+    parser.add_argument('--ffu', action='store_true', help='Capture fresh Windows reference to FFU and restore to a separate blank disk; requires --apply-windows')
     parser.add_argument('--ubuntu-iso', type=Path)
     parser.add_argument('--missing-stage', action='store_true')
     parser.add_argument('--invalid-stage', action='store_true')
     parser.add_argument('--timeout', type=int, default=1800)
     args = parser.parse_args()
+    if args.ffu and not args.apply_windows:
+        parser.error('--ffu requires --apply-windows')
     if args.apply_windows and (args.handoff or args.missing_wim or args.ubuntu_iso or args.missing_stage or args.invalid_stage or not args.apply_windows.is_dir()):
         parser.error('--apply-windows requires an existing external directory and cannot combine with other cases')
     if args.invalid_stage and (not args.handoff or args.missing_stage or args.ubuntu_iso):
@@ -180,7 +183,10 @@ cmd /k
         capsule_start = handoff.prepare(output, payload, args.missing_stage, args.ubuntu_iso, args.invalid_stage)
         startup = startup.replace('call "%SYSTEMROOT%\\System32\\RUN-TEST.CMD"', capsule_start)
     if args.apply_windows:
-        import windows_apply
+        if args.ffu:
+            import windows_ffu as windows_apply
+        else:
+            import windows_apply
         windows_disk, apply_start, windows_identity = windows_apply.prepare(output, payload, args.apply_windows)
         startup = startup.replace('call "%SYSTEMROOT%\\System32\\RUN-TEST.CMD"', apply_start)
     (payload / 'lab-start.cmd').write_bytes(startup.replace('\n', '\r\n').encode())
@@ -230,6 +236,9 @@ cmd /k
                         '-device', 'ide-hd,drive=windows,bus=ide.0,unit=0,bootindex=1',
                         '-drive', f'if=ide,index=2,media=cdrom,readonly=on,file={args.iso}',
                         '-drive', f'if=ide,index=3,media=cdrom,readonly=on,file={output / "windows-capsule.iso"}'])
+    if args.ffu:
+        command[command.index('ide-hd,drive=windows,bus=ide.0,unit=0,bootindex=1')] = 'ide-hd,drive=windows,bus=ide.0,unit=0'
+        command.extend(windows_apply.drives(windows_disk))
     runtime = {'packages': subprocess.check_output(['dpkg-query', '-W', 'qemu-system-x86', 'ovmf', 'ipxe'], text=True).strip(),
                'iso_size': args.iso.stat().st_size, 'boot_wim_size': wim['size'], 'artifacts': artifacts,
                'sha256': {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in
@@ -252,6 +261,10 @@ cmd /k
     if args.apply_windows:
         report.update(case='windows-image-apply', scope='Verify index 1 application to blank disk, boot and recovery configuration, and installed Windows specialize',
                       not_tested=['Heimdal integration', 'customer golden image', 'OOBE completion', 'Secure Boot', 'production capsule builder'])
+    if args.ffu:
+        report.update(case='windows-ffu-roundtrip',
+                      scope='PXE WinPE: prepare unbooted WIM reference, capture FFU, restore separate disk, verify target specialize',
+                      not_tested=report['not_tested'] + ['optimized FFU', 'different disk sizes', 'WinRE boot'])
     def interrupted(signum, _):
         raise InterruptedError(f'Test interrupted by signal {signum}')
     signal.signal(signal.SIGTERM, interrupted)
