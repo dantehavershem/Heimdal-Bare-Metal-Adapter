@@ -26,7 +26,9 @@ Earlier attempts exposed QEMU serial-option parsing, WinPE serial initialization
 read-only mountpoint use, and a pre-write assertion; reports preserved. Disk
 selection now resolves unique QEMU serials, not fixed kernel device names.
 
-Dashboard on port 80 records FFU failure and Clonezilla assisted result. 26 targeted
+Dashboard on port 80 now gives Clonezilla and FFU their own visible result cards,
+with individual evidence entries. Live browser verification confirmed the Clonezilla
+card and mobile layout without horizontal overflow. 26 targeted
 helper tests pass. Frontend build and existing four browser tests passed during
 this work. See docs/CLONEZILLA_TEST_LAB.md and docs/FFU_TEST_LAB.md.
 Next validation: fresh unattended Clonezilla run with prepared prompt suppression,

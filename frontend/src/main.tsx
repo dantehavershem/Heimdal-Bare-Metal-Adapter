@@ -199,7 +199,7 @@ function Heading({
 function LabValidation() {
   return (
     <section className="panel lab-validation" aria-label="Recorded lab validation">
-      <Heading title="Lab validation" description="Boot chain and Windows WIM baseline passed · 9 September 2026 · isolated QEMU lab" />
+      <Heading title="Lab validation" description="ISO boot, Windows WIM and assisted Clonezilla results · 9 September 2026" />
       <div className="grid two">
         <div>
           <Badge tone="green">Passed in lab</Badge>
@@ -220,13 +220,24 @@ function LabValidation() {
           <p>Completed in 98 minutes 23 seconds with no guest keyboard input. OOBE completion and customer golden images remain untested.</p>
         </div>
         <div>
+          <Badge>Assisted lab pass</Badge>
+          <h3>Clonezilla → save, restore and boot</h3>
+          <p>Saved a small bootable fixture, restored it to a separate blank disk, verified its contents, and booted the restored target.</p>
+          <p>Console input was required at the reboot prompt. Fully unattended execution and customer OS restoration remain unverified.</p>
+        </div>
+        <div>
+          <Badge>Preparation failed</Badge>
+          <h3>Windows FFU → capture and restore</h3>
+          <p>Windows image application stopped at 49% with DISM error 1392. FFU capture and restoration did not start.</p>
+          <p>The source WIM and virtual-disk structure passed subsequent checks. The failure remains unresolved.</p>
+        </div>
+        <div>
           <Badge>Unverified</Badge>
           <h3>Heimdal integration</h3>
           <p>Validation through the actual Heimdal deployment process is still pending.</p>
           <p>Next: build the production image capsule workflow, validate a customer WIM, then deploy through Heimdal.</p>
         </div>
       </div>
-      <p>FFU baseline: preparation failed during Windows image application, before FFU capture. The source WIM passed a subsequent integrity check; the failure remains under investigation. Clonezilla saved and restored a small bootable fixture; restored-target boot and file integrity passed independent checks. This was an assisted run with console input at the reboot prompt. Fully unattended execution and customer OS restoration remain unverified.</p>
       <p className="help">These recorded lab results do not validate individual library images, physical hardware, or Secure Boot. They are not a live readiness check.</p>
       <details>
         <summary>View recorded test evidence</summary>
@@ -241,6 +252,10 @@ function LabValidation() {
           <dd>Run: <code>winpe-pxe-20260906T015249.555025Z</code> (1046.2 seconds). Full PXE and capsule boot chain reached Subiquity with no keyboard input; BootCurrent matched and firmware-variable deletion was read back.</dd>
           <dt>Windows WIM baseline · passed · 9 September 2026, 12:31:44 UTC</dt>
           <dd>Run: <code>winpe-pxe-20260909T123144.006496Z</code> (5903.1 seconds). All deployment markers, the unique installed-Windows identity, one guest reboot and complete PXE/HTTP transfers verified. Three live disk snapshots supported diagnosis without guest input or extra reboots.</dd>
+          <dt>Clonezilla · assisted lab pass · 9 September 2026, 19:44:44 UTC</dt>
+          <dd>Run: <code>winpe-pxe-20260909T194444.732920Z</code>. Independent audit verified PXE/capsule handoff, image save and restore, target file integrity, and target boot. Serial input was required at shutdown. The original monitor was stopped after its parser missed ANSI-decorated boot output; the corrected parser and offline evidence support the assisted result.</dd>
+          <dt>Windows FFU · preparation failed · 9 September 2026, 18:32:31 UTC</dt>
+          <dd>Run: <code>winpe-pxe-20260909T183231.683132Z</code> (1575 seconds). DISM error 1392 during initial WIM application; no FFU created. Full WIM verification and QCOW2 structural checks subsequently passed.</dd>
           <dt>Earlier Windows WIM attempt · timed out</dt>
           <dd>Run: <code>winpe-pxe-20260909T095102.307725Z</code> (7200.6 seconds). Windows app registration timed out before first-boot verification. The clean rerun used two CPU cores, more container memory headroom and a longer timeout; its logs confirm app registration succeeded.</dd>
           <dt>EFI rejection controls · passed</dt>
