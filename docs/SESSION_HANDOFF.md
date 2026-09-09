@@ -1,3 +1,69 @@
+# Latest checkpoint — Clonezilla assisted pass; FFU unresolved — 2026-09-09
+
+No test is running. User asked to check FFU failure then continue with Clonezilla.
+FFU source WIM verified successfully, QCOW2 structural check passed, no container
+OOM. DISM 1392 at 49% remains unexplained; no FFU capture/restore occurred.
+Source ISO retained; temporary 8 GiB WIM extraction copies removed. Diagnosis and
+hashes: artifacts/pxe-test/ffu-diagnosis-20260909/. Do not call the ISO corrupt.
+
+Clonezilla run winpe-pxe-20260909T194444.732920Z completed PXE -> WinPE capsule ->
+UEFI proof -> Clonezilla 3.3.3-15 -> savedisk -> restoredisk -> restored UEFI fixture
+boot. Independent evidence-audit.json passed eleven checks, including offline
+restored token/EFI hash, source EFI removal, distinct GPT partition identifiers,
+firmware target path, two guest resets and full network/capsule proofs.
+Assisted pass: live-medium shutdown needed serial CRLF. QMP keyboard Enter did not
+reach that serial prompt. GRUB's real target marker contained ANSI controls;
+original monitor failed to recognize it and was stopped. Preserve its false/interrupted
+report alongside the passing independent audit. Parser now strips ANSI controls
+and passes the transcript/regression check. New noeject noprompt options are
+unverified until another fresh run; do not claim fully unattended validation.
+Monitor elapsed 799.2 seconds. Identity 79999386-8ac9-4506-9c45-9f91cb6b0aba.
+
+This tests a small FAT32/GPT bootable fixture, not a full customer OS, physical
+hardware, Secure Boot, production capsule generation, or actual Heimdal delivery.
+Current Clonezilla test disks and image-storage disk remain in its artifact folder.
+Earlier attempts exposed QEMU serial-option parsing, WinPE serial initialization,
+read-only mountpoint use, and a pre-write assertion; reports preserved. Disk
+selection now resolves unique QEMU serials, not fixed kernel device names.
+
+Dashboard on port 80 records FFU failure and Clonezilla assisted result. 26 targeted
+helper tests pass. Frontend build and existing four browser tests passed during
+this work. See docs/CLONEZILLA_TEST_LAB.md and docs/FFU_TEST_LAB.md.
+Next validation: fresh unattended Clonezilla run with prepared prompt suppression,
+then Veeam Linux media; user will provide Windows recovery ISO later. Modern
+production image analysis/WIM capsule work and Heimdal delivery remain priorities.
+
+---
+
+# Latest checkpoint — FFU diagnosed, Clonezilla running — 2026-09-09
+
+User requested checking the FFU failure then continuing with Clonezilla.
+FFU stopped at 49% WIM application, DISM 1392, exit 1, 1575 seconds. No FFU was
+captured/restored. Read-only extraction of apply.log yielded no failing-file detail.
+Full WIM verification passed with wimlib-imagex; QCOW2 structural check passed;
+no container OOM. Cause remains unresolved. Temporary WIM copies removed, hashes
+and evidence retained. Do not repeat FFU now. docs/FFU_TEST_LAB.md has the result.
+
+Clonezilla stable 3.3.3-15 AMD64 downloaded and SHA-256 verified. New harness case
+--handoff --clonezilla-iso validates PXE/capsule launch, whole-disk savedisk/restoredisk
+of a small UEFI fixture, restored-file integrity, and boot from target. Not a full
+customer OS restoration test. All 25 targeted helper tests pass.
+
+Active run: winpe-pxe-20260909T194444.732920Z, container heimdal-clonezilla-test,
+2400-second timeout. At this checkpoint loading WinPE via PXE, no pass yet.
+Initial launch winpe-pxe-20260909T192414.401805Z failed QEMU device-option parsing;
+fixed serial properties on explicit IDE devices before this new run.
+Do not launch a duplicate test. Monitor serial/report/QMP in the active run.
+Details and limitations: docs/CLONEZILLA_TEST_LAB.md.
+
+Veeam Linux recovery ISOs are available in shared _torrents_done/Veeam; Windows
+agent archives contain installers, no generated Windows recovery ISO yet. User
+will provide that later. Admin uploads vendor recovery media to Image Library;
+analysis selects the adapter and capsule method. Backup source/access configured
+separately. Veeam testing has not started; latest instruction prioritizes Clonezilla.
+
+---
+
 # Latest checkpoint — FFU test launched — 2026-09-09
 
 User restored the accidentally deleted Windows ISO. File is regular and matches

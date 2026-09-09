@@ -40,7 +40,7 @@ def disk(path, identity):
     return first,count
 
 
-def prepare(output, payload, missing=False, ubuntu=None, invalid=False):
+def prepare(output, payload, missing=False, ubuntu=None, invalid=False, clonezilla=None):
     capsule=output/'capsule';capsule.mkdir();runtime=capsule/'runtime';runtime.mkdir()
     identity=uuid.uuid4()
     first,count=disk(output/'staging.raw',identity)
@@ -52,12 +52,16 @@ def prepare(output, payload, missing=False, ubuntu=None, invalid=False):
         execute(['llvm-dlltool','-m','i386:x86-64','-d',str(SOURCE/(lib+'.def')),'-l',str(output/(lib+'.lib'))])
     execute(['lld-link','/entry:mainCRTStartup','/subsystem:console','/nodefaultlib',
              '/out:'+str(capsule/'HANDOFF.EXE'),str(output/'firmware.obj'),str(output/'kernel32.lib'),str(output/'advapi32.lib')])
-    execute(compiler+(['-DUBUNTU_TEST'] if ubuntu else [])+[str(SOURCE/'proof.c'),'-o',str(output/'handoff-proof.obj')])
+    execute(compiler+(['-DUBUNTU_TEST'] if ubuntu or clonezilla else [])+[str(SOURCE/'proof.c'),'-o',str(output/'handoff-proof.obj')])
     execute(['lld-link','/entry:efi_main','/subsystem:efi_application','/nodefaultlib',
              '/out:'+str(runtime/'stage.efi'),str(output/'handoff-proof.obj')])
-    if ubuntu:
+    if ubuntu or clonezilla:
         config=output/'grub.cfg'
         config.write_text('serial --unit=0 --speed=115200\nterminal_output serial console\necho BMA_UBUNTU_GRUB_STARTED\nsearch --no-floppy --file --set=root /casper/vmlinuz\nlinux /casper/vmlinuz boot=casper console=tty0 console=ttyS0,115200n8 systemd.default_device_timeout_sec=600\ninitrd /casper/initrd\nboot\n')
+        if clonezilla:
+            import clonezilla_lab
+            config.write_text(clonezilla_lab.config())
+            clonezilla_lab.prepare(output, capsule)
         execute(['grub-mkstandalone','-O','x86_64-efi','-d','/usr/lib/grub/x86_64-efi',
                  '--locales=','--fonts=','--modules=part_gpt part_msdos fat iso9660 serial search search_fs_file linux normal',
                  '-o',str(runtime/'grub.efi'),'boot/grub/grub.cfg='+str(config)])
@@ -95,8 +99,8 @@ exit /b 60
     if invalid:(runtime/'stage.efi').write_bytes(b'Invalid EFI test payload\n')
     manifest={'schema_version':1,'scope':'Disposable-VM BootNext proof only',
               'target_partition_guid':str(identity),'normal_boot_order':'preserve',
-              'secure_boot':False,'linux_adapter':'Ubuntu Casper on attached read-only source ISO' if ubuntu else 'not included',
-              'source_iso':str(ubuntu) if ubuntu else None,
+              'secure_boot':False,'linux_adapter':'Clonezilla Debian Live on attached read-only source ISO' if clonezilla else 'Ubuntu Casper on attached read-only source ISO' if ubuntu else 'not included',
+              'source_iso':str(clonezilla or ubuntu) if clonezilla or ubuntu else None,
               'files':{str(p.relative_to(capsule)):hashlib.sha256(p.read_bytes()).hexdigest()
                        for p in capsule.rglob('*') if p.is_file()}}
     (capsule/'deployment.json').write_text(json.dumps(manifest,indent=2)+'\n')

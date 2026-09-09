@@ -99,11 +99,14 @@ def main():
     parser.add_argument('--handoff', action='store_true')
     parser.add_argument('--apply-windows', type=Path, help='External directory for a NEW disposable Windows virtual disk')
     parser.add_argument('--ffu', action='store_true', help='Capture fresh Windows reference to FFU and restore to a separate blank disk; requires --apply-windows')
+    parser.add_argument('--clonezilla-iso', type=Path)
     parser.add_argument('--ubuntu-iso', type=Path)
     parser.add_argument('--missing-stage', action='store_true')
     parser.add_argument('--invalid-stage', action='store_true')
     parser.add_argument('--timeout', type=int, default=1800)
     args = parser.parse_args()
+    if args.clonezilla_iso and (not args.handoff or args.ubuntu_iso or args.apply_windows or args.missing_stage or args.invalid_stage or args.missing_wim or not args.clonezilla_iso.is_file()):
+        parser.error('--clonezilla-iso requires --handoff and cannot combine with other cases')
     if args.ffu and not args.apply_windows:
         parser.error('--ffu requires --apply-windows')
     if args.apply_windows and (args.handoff or args.missing_wim or args.ubuntu_iso or args.missing_stage or args.invalid_stage or not args.apply_windows.is_dir()):
@@ -180,7 +183,7 @@ cmd /k
 '''
     if args.handoff:
         import handoff
-        capsule_start = handoff.prepare(output, payload, args.missing_stage, args.ubuntu_iso, args.invalid_stage)
+        capsule_start = handoff.prepare(output, payload, args.missing_stage, args.ubuntu_iso, args.invalid_stage, args.clonezilla_iso)
         startup = startup.replace('call "%SYSTEMROOT%\\System32\\RUN-TEST.CMD"', capsule_start)
     if args.apply_windows:
         if args.ffu:
@@ -225,7 +228,13 @@ cmd /k
                         '-device', 'isa-debug-exit,iobase=0xf4,iosize=0x04'])
     if args.ubuntu_iso:
         command[command.index(f'file:{output / "serial.log"}')] = f'unix:{output / "serial.sock"},server=on,wait=off'
-        command.extend(['-drive', f'if=ide,media=cdrom,readonly=on,file={args.ubuntu_iso}'])
+    if args.ubuntu_iso or args.clonezilla_iso:
+        command.extend(['-drive', f'if=ide,media=cdrom,readonly=on,file={args.clonezilla_iso or args.ubuntu_iso}'])
+    if args.clonezilla_iso:
+        command[command.index('-smp') + 1] = '2,sockets=1,cores=2,threads=1'
+        import clonezilla_lab
+        clonezilla_identity = json.loads((output/'clonezilla.json').read_text())['identity']
+        command.extend(clonezilla_lab.drives(output))
     if args.apply_windows:
         command[command.index('-smp') + 1] = '2,sockets=1,cores=2,threads=1'
         command[command.index('order=n,strict=on')] = 'strict=on'
@@ -265,6 +274,9 @@ cmd /k
         report.update(case='windows-ffu-roundtrip',
                       scope='PXE WinPE: prepare unbooted WIM reference, capture FFU, restore separate disk, verify target specialize',
                       not_tested=report['not_tested'] + ['optimized FFU', 'different disk sizes', 'WinRE boot'])
+    if args.clonezilla_iso:
+        report.update(case='clonezilla-roundtrip', scope='PXE capsule to Clonezilla savedisk/restoredisk and target UEFI fixture boot',
+                      not_tested=['customer OS restoration', 'Heimdal', 'Secure Boot', 'physical hardware', 'production capsule builder'])
     def interrupted(signum, _):
         raise InterruptedError(f'Test interrupted by signal {signum}')
     signal.signal(signal.SIGTERM, interrupted)
@@ -333,6 +345,11 @@ cmd /k
                         break
                     if args.invalid_stage and 'BMA_HANDOFF_FAILED code=035' in serial and 'BMA_HANDOFF_CAPSULE_EXIT_66' in serial:
                         break
+                    if args.clonezilla_iso:
+                        if 'BMA_CLONEZILLA_FAILED' in serial:
+                            raise RuntimeError('Clonezilla fixture failed; see serial.log')
+                        if clonezilla_lab.reached(serial, clonezilla_identity):
+                            break
                     if args.ubuntu_iso and ubuntu_reached(serial):
                         break
                 elif args.missing_wim:
@@ -397,6 +414,10 @@ cmd /k
             elif args.missing_stage:
                 case_ok = ('BMA_HANDOFF_REJECTED_MISSING' in serial and not any(report['handoff_markers'].values())
                            and not any(report['uefi_markers'].values()) and not reboot_events and all(transfers.values()))
+            elif args.clonezilla_iso:
+                report['clonezilla_restored_boot'] = clonezilla_lab.reached(serial, clonezilla_identity)
+                case_ok = (all(report['handoff_markers'].values()) and all(report['uefi_markers'].values())
+                           and len(reboot_events)==2 and all(transfers.values()) and report['clonezilla_restored_boot'])
             elif args.ubuntu_iso:
                 report['ubuntu_userspace_reached'] = ubuntu_reached(serial)
                 case_ok = (all(report['handoff_markers'].values()) and all(report['uefi_markers'].values())

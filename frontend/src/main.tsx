@@ -226,6 +226,7 @@ function LabValidation() {
           <p>Next: build the production image capsule workflow, validate a customer WIM, then deploy through Heimdal.</p>
         </div>
       </div>
+      <p>FFU baseline: preparation failed during Windows image application, before FFU capture. The source WIM passed a subsequent integrity check; the failure remains under investigation. Clonezilla saved and restored a small bootable fixture; restored-target boot and file integrity passed independent checks. This was an assisted run with console input at the reboot prompt. Fully unattended execution and customer OS restoration remain unverified.</p>
       <p className="help">These recorded lab results do not validate individual library images, physical hardware, or Secure Boot. They are not a live readiness check.</p>
       <details>
         <summary>View recorded test evidence</summary>
