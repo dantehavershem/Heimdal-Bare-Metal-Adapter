@@ -1,3 +1,20 @@
+# Latest checkpoint — FFU test launched — 2026-09-09
+
+User restored the accidentally deleted Windows ISO. File is regular and matches
+its prior 7,368,480,768-byte size. Launched run
+`winpe-pxe-20260909T183231.683132Z` at 18:32 UTC in detached container
+`heimdal-windows-ffu-test`, with 18,000-second limit (five hours).
+At this checkpoint QEMU is running; no FFU result yet. The run created three
+new disposable disks under the matching external lab directory. Source ISO and
+repository are mounted read-only; networking is isolated. Capture, restore and
+target Windows verification must all pass before reporting success.
+
+Monitor with docker logs / docker inspect and the run's serial.log, report.json
+and QMP socket. Do not launch a duplicate test. Keep the container after it stops
+to record the actual process exit status. Details: docs/FFU_TEST_LAB.md.
+
+---
+
 # Latest checkpoint — FFU prepared, Windows media missing — 2026-09-09
 
 User selected FFU as the next format test. Added --ffu to the isolated Windows

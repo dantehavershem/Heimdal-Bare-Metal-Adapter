@@ -1,14 +1,14 @@
 # FFU capture and restore lab
 
-Status (2026-09-09): harness prepared; execution blocked by missing Windows ISO.
-Launch failed input validation, exit 2, before creating a VM or virtual disks.
-Evidence: `artifacts/pxe-test/ffu-preflight-20260909/`.
-The previous CCSA ISO is no longer present. Full shared-folder search also found
-no boot.wim or install.wim. User asked for its new location or restoration.
+Status (2026-09-09, 18:32 UTC): user restored the Windows ISO; FFU test running.
+Run: `winpe-pxe-20260909T183231.683132Z`.
+Container: `heimdal-windows-ffu-test`, detached, five-hour timeout.
+Three new disks created; QEMU started. No capture/restore/boot pass claimed yet.
+Eight Windows/FFU helper tests pass.
 
+The earlier launch failed input validation, exit 2, before creating a VM or
+virtual disks. Its evidence is in `artifacts/pxe-test/ffu-preflight-20260909/`.
 This is lab tooling, not production FFU ingestion or Heimdal readiness.
-Eight Windows/FFU helper tests pass. Real capture, restoration and boot remain
-unverified until the ISO is available and the complete run passes.
 
 ## Method
 
