@@ -1,0 +1,6 @@
+services:
+  pxe-test:
+    image: heimdal-bare-metal-adapter-pxe-test:windows-apply
+    build:
+      context: .
+      dockerfile: tools/pxe-test/Dockerfile.windows-apply

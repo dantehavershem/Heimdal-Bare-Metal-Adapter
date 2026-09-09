@@ -199,7 +199,7 @@ function Heading({
 function LabValidation() {
   return (
     <section className="panel lab-validation" aria-label="Recorded lab validation">
-      <Heading title="Lab validation" description="Automatic boot chain passed · 6 September 2026 · isolated QEMU lab" />
+      <Heading title="Lab validation" description="Boot chain passed; Windows image test partial · 9 September 2026 · isolated QEMU lab" />
       <div className="grid three">
         <div>
           <Badge tone="green">Passed in lab</Badge>
@@ -217,7 +217,7 @@ function LabValidation() {
           <Badge>Unverified</Badge>
           <h3>Heimdal integration</h3>
           <p>Validation through the actual Heimdal deployment process is still pending.</p>
-          <p>Next: build a Windows golden-image capsule from a customer WIM, validate it in the harness, then through Heimdal.</p>
+          <p>Next: resolve Windows first-boot verification, then validate a customer WIM and deployment through Heimdal.</p>
         </div>
       </div>
       <p className="help">These recorded lab results do not validate individual library images, physical hardware, or Secure Boot. They are not a live readiness check.</p>
@@ -232,10 +232,12 @@ function LabValidation() {
           <dd>Run: <code>winpe-pxe-20260906T010359.765597Z</code>. One guest reboot, unchanged BootOrder, consumed BootNext, and temporary firmware-variable cleanup verified.</dd>
           <dt>Ubuntu installer handoff · passed · 6 September 2026, 01:52:49 UTC</dt>
           <dd>Run: <code>winpe-pxe-20260906T015249.555025Z</code> (1046.2 seconds). Full PXE and capsule boot chain reached Subiquity with no keyboard input; BootCurrent matched and firmware-variable deletion was read back.</dd>
+          <dt>Windows WIM baseline · partial · 9 September 2026</dt>
+          <dd>Run: <code>winpe-pxe-20260909T095102.307725Z</code> (7200.6 seconds). PXE boot, image application, boot files and recovery registration passed. Windows reached “Getting ready”, but its first-boot marker was absent at timeout. Overall test did not pass; startup diagnosis is next.</dd>
           <dt>EFI rejection controls · passed</dt>
           <dd>Missing stage: <code>winpe-pxe-20260906T010801.293915Z</code> (168.9 seconds). Invalid stage: <code>winpe-pxe-20260906T011119.375712Z</code> (185.8 seconds). Both rejected the payload without rebooting.</dd>
         </dl>
-        <p>Reports and logs are retained with these run IDs in the lab artifacts. Reproduction and scope are documented in <code>docs/PXE_TEST_LAB.md</code> and <code>docs/HANDOFF_TEST_LAB.md</code>.</p>
+        <p>Reports and logs are retained with these run IDs in the lab artifacts. Reproduction and scope are documented in <code>docs/PXE_TEST_LAB.md</code> and <code>docs/HANDOFF_TEST_LAB.md</code>, plus <code>docs/WINDOWS_IMAGE_TEST_LAB.md</code>.</p>
       </details>
     </section>
   );

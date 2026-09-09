@@ -97,11 +97,14 @@ def main():
     parser.add_argument('--wimboot', type=Path, default=Path('/output/downloads/wimboot'))
     parser.add_argument('--missing-wim', action='store_true')
     parser.add_argument('--handoff', action='store_true')
+    parser.add_argument('--apply-windows', type=Path, help='External directory for a NEW disposable Windows virtual disk')
     parser.add_argument('--ubuntu-iso', type=Path)
     parser.add_argument('--missing-stage', action='store_true')
     parser.add_argument('--invalid-stage', action='store_true')
     parser.add_argument('--timeout', type=int, default=1800)
     args = parser.parse_args()
+    if args.apply_windows and (args.handoff or args.missing_wim or args.ubuntu_iso or args.missing_stage or args.invalid_stage or not args.apply_windows.is_dir()):
+        parser.error('--apply-windows requires an existing external directory and cannot combine with other cases')
     if args.invalid_stage and (not args.handoff or args.missing_stage or args.ubuntu_iso):
         parser.error('--invalid-stage requires --handoff and cannot combine with other cases')
     if args.ubuntu_iso and (not args.handoff or args.missing_stage or not args.ubuntu_iso.is_file()):
@@ -176,6 +179,10 @@ cmd /k
         import handoff
         capsule_start = handoff.prepare(output, payload, args.missing_stage, args.ubuntu_iso, args.invalid_stage)
         startup = startup.replace('call "%SYSTEMROOT%\\System32\\RUN-TEST.CMD"', capsule_start)
+    if args.apply_windows:
+        import windows_apply
+        windows_disk, apply_start, windows_identity = windows_apply.prepare(output, payload, args.apply_windows)
+        startup = startup.replace('call "%SYSTEMROOT%\\System32\\RUN-TEST.CMD"', apply_start)
     (payload / 'lab-start.cmd').write_bytes(startup.replace('\n', '\r\n').encode())
     (payload / 'winpeshl.ini').write_bytes(
         b'[LaunchApps]\r\n%SYSTEMROOT%\\System32\\cmd.exe, /d /c %SYSTEMROOT%\\System32\\lab-start.cmd\r\n')
@@ -197,7 +204,7 @@ cmd /k
                '-drive', f'if=pflash,format=raw,readonly=on,file={firmware}',
                '-drive', f'if=pflash,format=raw,file={output / "vars.fd"}',
                '-boot', 'order=n,strict=on', '-netdev', net, '-device', 'e1000,netdev=net0',
-               '-object', f'filter-dump,id=capture,netdev=net0,file={output / "network.pcap"},maxlen={128 if args.handoff else 512}',
+               '-object', f'filter-dump,id=capture,netdev=net0,file={output / "network.pcap"},maxlen={128 if args.handoff or args.apply_windows else 512}',
                '-display', 'none', '-qmp', f'unix:{output / "qmp.sock"},server=on,wait=off',
                '-monitor', 'none', '-serial', f'file:{output / "serial.log"}', '-no-reboot']
     if args.handoff:
@@ -213,6 +220,15 @@ cmd /k
     if args.ubuntu_iso:
         command[command.index(f'file:{output / "serial.log"}')] = f'unix:{output / "serial.sock"},server=on,wait=off'
         command.extend(['-drive', f'if=ide,media=cdrom,readonly=on,file={args.ubuntu_iso}'])
+    if args.apply_windows:
+        command[command.index('order=n,strict=on')] = 'strict=on'
+        command[command.index('e1000,netdev=net0')] = 'e1000,netdev=net0,bootindex=2'
+        command.remove('-no-reboot')
+        command.extend(['-qmp', f'unix:{output / "qmp-control.sock"},server=on,wait=off',
+                        '-drive', f'if=none,id=windows,format=qcow2,file={windows_disk}',
+                        '-device', 'ide-hd,drive=windows,bus=ide.0,unit=0,bootindex=1',
+                        '-drive', f'if=ide,index=2,media=cdrom,readonly=on,file={args.iso}',
+                        '-drive', f'if=ide,index=3,media=cdrom,readonly=on,file={output / "windows-capsule.iso"}'])
     runtime = {'packages': subprocess.check_output(['dpkg-query', '-W', 'qemu-system-x86', 'ovmf', 'ipxe'], text=True).strip(),
                'iso_size': args.iso.stat().st_size, 'boot_wim_size': wim['size'], 'artifacts': artifacts,
                'sha256': {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in
@@ -232,6 +248,9 @@ cmd /k
     if args.ubuntu_iso:
         report.update(case='ubuntu-handoff', scope='Lab capsule WinPE BootNext handoff to Ubuntu live userspace',
                       not_tested=['Heimdal integration', 'installation to disk', 'Secure Boot', 'production capsule builder'])
+    if args.apply_windows:
+        report.update(case='windows-image-apply', scope='Verify index 1 application to blank disk, boot and recovery configuration, and installed Windows specialize',
+                      not_tested=['Heimdal integration', 'customer golden image', 'OOBE completion', 'Secure Boot', 'production capsule builder'])
     def interrupted(signum, _):
         raise InterruptedError(f'Test interrupted by signal {signum}')
     signal.signal(signal.SIGTERM, interrupted)
@@ -258,7 +277,7 @@ cmd /k
                 else:
                     raise RuntimeError('Serial socket did not become available')
                 serial_output = (output/'serial.log').open('wb', buffering=0)
-            if args.handoff:
+            if args.handoff or args.apply_windows:
                 qmp = socket.socket(socket.AF_UNIX)
                 for _ in range(100):
                     try:
@@ -289,7 +308,13 @@ cmd /k
                 serial = serial_path.read_text(errors='replace') if serial_path.exists() else ''
                 http = requests(output / 'http.jsonl')
                 markers = {marker: marker in serial for marker in MARKERS}
-                if args.handoff:
+                if args.apply_windows:
+                    if 'BMA_WINDOWS_APPLY_FAILED' in serial:
+                        raise RuntimeError('Windows image application failed; see serial.log')
+                    windows_markers, identity_matched = windows_apply.evidence(serial, windows_identity)
+                    if all(windows_markers.values()) and identity_matched:
+                        break
+                elif args.handoff:
                     if args.missing_stage and 'BMA_HANDOFF_REJECTED_MISSING' in serial:
                         break
                     if args.invalid_stage and 'BMA_HANDOFF_FAILED code=035' in serial and 'BMA_HANDOFF_CAPSULE_EXIT_66' in serial:
@@ -329,7 +354,7 @@ cmd /k
             report['terminal_response_batches'] = terminal_replies
         if qmp:
             qmp.close()
-        if args.handoff:
+        if args.handoff or args.apply_windows:
             (output/'qmp-events.json').write_text(json.dumps(events, indent=2)+'\n')
         http = requests(output / 'http.jsonl')
         serial_path = output / 'serial.log'
@@ -366,6 +391,11 @@ cmd /k
             else:
                 case_ok = (all(report['handoff_markers'].values()) and all(report['uefi_markers'].values())
                            and len(reboot_events)==1 and all(transfers.values()) and process.returncode==33)
+        if args.apply_windows:
+            report['windows_markers'], report['first_boot_identity_matched'] = windows_apply.evidence(serial, windows_identity)
+            report['guest_resets'] = sum(e['event']=='RESET' and e.get('data',{}).get('guest',False) for e in events)
+            case_ok = (all(report['windows_markers'].values()) and report['first_boot_identity_matched']
+                       and report['guest_resets'] >= 1 and all(transfers.values()))
         report.update(passed=base_ok and case_ok and 'error' not in report,
                       markers=marker_evidence, network=network, http_transfers=transfers,
                       elapsed_seconds=round(time.monotonic() - started, 1))

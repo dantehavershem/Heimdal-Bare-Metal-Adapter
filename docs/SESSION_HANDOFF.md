@@ -1,3 +1,52 @@
+# Latest Windows WIM test — partial result, timeout — 2026-09-09
+
+Run `winpe-pxe-20260909T095102.307725Z` ended after 7200.6 seconds.
+**Overall passed=false:** installed Windows first-boot identity/marker was absent.
+The test container stopped; there is no active Windows test.
+
+Verified: complete PXE DHCP/TFTP and all eight HTTP transfers; actual WinPE
+capsule SETUP.EXE; full 6,509,992,649-byte install.wim; index 1 DISM /Apply-Image
+/CheckIntegrity success; GPT partitioning, BCDBoot, WinRE copy and REAgentC
+registration; one guest-requested reboot. UEFI then loaded Windows Boot Manager
+from the new disk. Screens progressed through services starting, device setup
+(including 60%), and “Getting ready”. No keyboard input was sent. No observed
+QEMU I/O failures or container OOM events. This is not a complete first-boot pass,
+OOBE completion, customer golden-image validation, or Heimdal readiness.
+
+Source: read-only `/media/sf_Downloads/_torrents_done/CCSA_X64FRE_DE-DE_DV9.ISO`;
+Windows 11 Enterprise LTSC 2024, AMD64, de-DE, build 26100.7840, index 1.
+The ARM64 host runs the x64 guest under TCG with 4 GiB guest RAM and one vCPU.
+Image application took about 65 minutes; startup then consumed the remaining time.
+Slow emulation is a possible contributor, not a diagnosed cause of the missing marker.
+
+Evidence: `artifacts/pxe-test/winpe-pxe-20260909T095102.307725Z/`, including
+report.json, serial.log, qmp-events.json, command.json, windows-apply.json and
+first-boot.png. The report's scope describes the intended assertion; its
+passed=false and marker fields are authoritative for the outcome.
+Retained disposable disk (64 GiB virtual, about 14 GiB allocated):
+`/media/sf_Downloads/Heimdal-BMA-Lab/winpe-pxe-20260909T095102.307725Z/windows.qcow2`.
+Do not overwrite it or reapply the image just to diagnose startup. Next: inspect
+installed Windows Panther/setup logs and the first-boot serial script, then resume
+this disk with a bounded startup observation. Preserve the original timeout report.
+No physical target disks were attached; source ISO and code stayed read-only.
+
+New lab helper `tools/pxe-test/windows_apply.py`, `--apply-windows /disks`, and
+`compose.windows-apply.yml` create this isolated case. They refuse an existing
+per-run target directory and require 40 GiB free external storage. Preparation
+attempt `winpe-pxe-20260909T095017.873435Z` failed before guest launch because
+qemu-img was missing; the new image adds qemu-utils. Seventeen unit tests passed
+(HTTP, terminal, Ubuntu readiness, two target-disk isolation checks, and two first-boot evidence checks).
+See `docs/WINDOWS_IMAGE_TEST_LAB.md` for reproduction and evidence scope.
+After the run, marker matching was tightened to require complete serial lines;
+identity alone cannot stand in for the completion marker. Two regression checks
+passed. The original timeout result is unchanged. Dashboard partial-result text
+is deployed on port 80; frontend build, four browser tests, and a live page check
+passed. Packet capture is losslessly compressed as network.pcap.gz with a verified
+decompressed SHA256 in network.retention.json. The external disk is retained for
+diagnosis. This checkpoint is prepared for synchronization with origin/main.
+
+---
+
 # Latest source check — installation WIM available — 2026-09-09
 
 Read-only metadata inspection of
