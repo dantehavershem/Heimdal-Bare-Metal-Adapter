@@ -1,3 +1,73 @@
+# Latest checkpoint — Windows WIM baseline passed — 2026-09-09
+
+**Run `winpe-pxe-20260909T123144.006496Z` passed in 5903.1 seconds
+(98 minutes 23 seconds). No Windows test is running.**
+Source: unchanged, read-only CCSA_X64FRE_DE-DE_DV9.ISO, install.wim index 1,
+Windows 11 Enterprise LTSC 2024, AMD64, de-DE, build 26100.7840.
+
+Verified: complete PXE DHCP/TFTP and eight HTTP transfers; actual capsule SETUP.EXE;
+full 6,509,992,649-byte WIM; DISM /Apply-Image /CheckIntegrity to a new GPT disk;
+BCDBoot and recovery registration; one guest-requested reboot; installed Windows
+specialize execution with SystemDrive C: and no MiniNT key; matching unique
+identity 5b6bf058-d006-4628-9616-09fa984056fd and complete first-boot marker.
+No keyboard input, setup-state bypass, or manual Windows command was used.
+The harness stops after the marker: OOBE completion, desktop use, WinRE boot,
+customer golden images, Secure Boot and actual Heimdal integration remain untested.
+Production WIM ingestion/capsule building is still planned, not implemented.
+
+Diagnosis and correction: the original one-core run reached AppX specialization
+but timed out before the verification script. A separate overlay restart hit the
+unexpected-restart setup error (181.2 seconds); it was stopped without bypassing
+setup state. The image case inherited one vCPU from WinPE; changed to two cores
+in one socket. Container RAM limit is now 6 GiB (7 GiB with swap), guest RAM 4 GiB;
+run timeout 10800 seconds. FIRSTBOOT.CMD also writes FIRSTBOOT.LOG.
+The rerun's AppX preregistration returned 0x0 and AppxSysprepSpecializeOnline
+completed at guest-log 14:00:09. SetupUGC invoked FIRSTBOOT.CMD during specialize
+at 14:09:49; FIRSTBOOT.LOG confirms invocation and successful COM1 device restart.
+The serial log then records the exact identity, Windows version and completion.
+This supports the corrected lab configuration; it does not isolate which resource
+or timeout change was solely responsible for the original failure.
+
+Evidence directory: `artifacts/pxe-test/winpe-pxe-20260909T123144.006496Z/`.
+Includes report.json, serial.log, qmp-events.json, command.json, windows-apply.json,
+three live-snapshot*.json records, three snapshot inspections and final-inspection/.
+Raw extracted files have SHA256 manifests. The launch wrapper returned exit 130
+without its final console report; persisted report.json says passed=true and was
+independently checked against raw guest/network/QMP and offline setup evidence.
+QEMU logged normal SIGTERM from the harness after marker detection. Do not claim
+a clean wrapper exit; the guest assertions are the basis of the lab pass.
+
+Three QMP external snapshots enabled frozen-disk inspection without rebooting the
+guest. These were crash-consistent disk snapshots, not VSS backups. ALL FOUR FILES
+are needed for the retained latest disk, under
+`/media/sf_Downloads/Heimdal-BMA-Lab/winpe-pxe-20260909T123144.006496Z/`:
+`startup-live-3.qcow2` -> `startup-current.qcow2` -> `startup-live.qcow2` -> `windows.qcow2`.
+Backing paths use /disks/<run>/ inside the container. command.json records initial
+launch; live-snapshot-3.json records the final chain. Do not boot the frozen base
+as if it were the final disk. Original failed disk and resume overlay remain
+separate and preserved with their reports. No physical disks or source ISO writes.
+
+Tools: windows_inspect.py plus Dockerfile.windows-inspect provide read-only QCOW2
+and NTFS extraction using dissect.target==3.25.1. Repeated --backing-disk arguments
+list immediate backing through base for overlays. Actual extraction verified for
+standalone QCOW2 and nested overlays. windows_resume.py provides bounded overlay
+startup observation, not setup-state repair. Temporary inspector container removed.
+Four Windows helper tests passed; Python syntax and diff checks passed.
+Frontend build and all four browser tests passed. Updated dashboard is deployed
+on port 80; live desktop evidence and mobile layout checks passed. API, database,
+Redis and worker are running. network.pcap is now losslessly compressed as
+network.pcap.gz; decompressed SHA256 was verified and recorded in network.retention.json.
+Independent evidence-audit.json verifies all guest assertions. The outer session
+exit discrepancy remains recorded for runner/CI follow-up; do not repeat a full
+image application solely to investigate that transport status.
+
+Next product work: implement image inspection and production WIM capsule building,
+then validate a customer generalized golden WIM and actual Heimdal deployment.
+Keep ISO as one image format. The dashboard records the lab pass without per-image
+or Heimdal readiness claims. Detailed reproduction: docs/WINDOWS_IMAGE_TEST_LAB.md.
+
+---
+
 # Latest Windows WIM test — partial result, timeout — 2026-09-09
 
 Run `winpe-pxe-20260909T095102.307725Z` ended after 7200.6 seconds.

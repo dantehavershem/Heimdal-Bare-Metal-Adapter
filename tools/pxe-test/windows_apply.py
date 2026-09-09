@@ -48,6 +48,10 @@ exit
 ''')
     # Runs from the installed Windows partition during specialize, not from PE.
     batch('FIRSTBOOT.CMD', r'''@echo off
+call :verify > "%~dp0FIRSTBOOT.LOG" 2>&1
+exit /b %errorlevel%
+:verify
+echo BMA_WINDOWS_VERIFY_STARTED %date% %time%
 if /i not "%SystemDrive%"=="C:" exit /b 91
 reg query HKLM\SYSTEM\CurrentControlSet\Control\MiniNT > nul 2>&1
 if not errorlevel 1 exit /b 93

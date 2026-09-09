@@ -1,5 +1,7 @@
 services:
   pxe-test:
+    mem_limit: 6g
+    memswap_limit: 7g
     image: heimdal-bare-metal-adapter-pxe-test:windows-apply
     build:
       context: .

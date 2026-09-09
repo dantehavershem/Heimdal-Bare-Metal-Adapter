@@ -199,8 +199,8 @@ function Heading({
 function LabValidation() {
   return (
     <section className="panel lab-validation" aria-label="Recorded lab validation">
-      <Heading title="Lab validation" description="Boot chain passed; Windows image test partial · 9 September 2026 · isolated QEMU lab" />
-      <div className="grid three">
+      <Heading title="Lab validation" description="Boot chain and Windows WIM baseline passed · 9 September 2026 · isolated QEMU lab" />
+      <div className="grid two">
         <div>
           <Badge tone="green">Passed in lab</Badge>
           <h3>PXE → WinPE → launcher</h3>
@@ -214,10 +214,16 @@ function LabValidation() {
           <p>Ubuntu reached its installer automatically in 17 minutes 26 seconds. Missing and invalid EFI controls passed.</p>
         </div>
         <div>
+          <Badge tone="green">Passed in lab</Badge>
+          <h3>Windows WIM → installed system</h3>
+          <p>Applied Windows 11 Enterprise LTSC to a blank virtual disk, configured boot and recovery, and verified the installed system during specialization.</p>
+          <p>Completed in 98 minutes 23 seconds with no guest keyboard input. OOBE completion and customer golden images remain untested.</p>
+        </div>
+        <div>
           <Badge>Unverified</Badge>
           <h3>Heimdal integration</h3>
           <p>Validation through the actual Heimdal deployment process is still pending.</p>
-          <p>Next: resolve Windows first-boot verification, then validate a customer WIM and deployment through Heimdal.</p>
+          <p>Next: build the production image capsule workflow, validate a customer WIM, then deploy through Heimdal.</p>
         </div>
       </div>
       <p className="help">These recorded lab results do not validate individual library images, physical hardware, or Secure Boot. They are not a live readiness check.</p>
@@ -232,8 +238,10 @@ function LabValidation() {
           <dd>Run: <code>winpe-pxe-20260906T010359.765597Z</code>. One guest reboot, unchanged BootOrder, consumed BootNext, and temporary firmware-variable cleanup verified.</dd>
           <dt>Ubuntu installer handoff · passed · 6 September 2026, 01:52:49 UTC</dt>
           <dd>Run: <code>winpe-pxe-20260906T015249.555025Z</code> (1046.2 seconds). Full PXE and capsule boot chain reached Subiquity with no keyboard input; BootCurrent matched and firmware-variable deletion was read back.</dd>
-          <dt>Windows WIM baseline · partial · 9 September 2026</dt>
-          <dd>Run: <code>winpe-pxe-20260909T095102.307725Z</code> (7200.6 seconds). PXE boot, image application, boot files and recovery registration passed. Windows reached “Getting ready”, but its first-boot marker was absent at timeout. Overall test did not pass; startup diagnosis is next.</dd>
+          <dt>Windows WIM baseline · passed · 9 September 2026, 12:31:44 UTC</dt>
+          <dd>Run: <code>winpe-pxe-20260909T123144.006496Z</code> (5903.1 seconds). All deployment markers, the unique installed-Windows identity, one guest reboot and complete PXE/HTTP transfers verified. Three live disk snapshots supported diagnosis without guest input or extra reboots.</dd>
+          <dt>Earlier Windows WIM attempt · timed out</dt>
+          <dd>Run: <code>winpe-pxe-20260909T095102.307725Z</code> (7200.6 seconds). Windows app registration timed out before first-boot verification. The clean rerun used two CPU cores, more container memory headroom and a longer timeout; its logs confirm app registration succeeded.</dd>
           <dt>EFI rejection controls · passed</dt>
           <dd>Missing stage: <code>winpe-pxe-20260906T010801.293915Z</code> (168.9 seconds). Invalid stage: <code>winpe-pxe-20260906T011119.375712Z</code> (185.8 seconds). Both rejected the payload without rebooting.</dd>
         </dl>

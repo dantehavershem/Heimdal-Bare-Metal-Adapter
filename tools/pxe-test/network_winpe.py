@@ -221,6 +221,7 @@ cmd /k
         command[command.index(f'file:{output / "serial.log"}')] = f'unix:{output / "serial.sock"},server=on,wait=off'
         command.extend(['-drive', f'if=ide,media=cdrom,readonly=on,file={args.ubuntu_iso}'])
     if args.apply_windows:
+        command[command.index('-smp') + 1] = '2,sockets=1,cores=2,threads=1'
         command[command.index('order=n,strict=on')] = 'strict=on'
         command[command.index('e1000,netdev=net0')] = 'e1000,netdev=net0,bootindex=2'
         command.remove('-no-reboot')
