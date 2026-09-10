@@ -1,3 +1,56 @@
+# Paused checkpoint — self-contained deployment ISO milestone — 2026-09-10
+
+User requested saving the current status until tomorrow. No lab tests are running;
+only normal dashboard/API/worker/database/cache services remain up. Do not start
+new tests from this checkpoint without the user resuming work. Dashboard is on
+port 80 and displays separate bordered result cards for Clonezilla and FFU.
+
+## Agreed product direction and next milestone
+
+For most supported image types, the next step is to package the validated
+installation or recovery method into ONE self-contained deployment ISO/capsule.
+It should contain the boot environment, source image/backup and all its metadata,
+required drivers, configuration, automation scripts, boot files, and outcome
+verification. An admin supplies the original media/image; analysis identifies
+compatibility and the plugin provides the packaging and deployment method.
+
+For Clonezilla specifically, combine its recovery environment, the complete
+Clonezilla backup image set, restore settings, drivers and verification into the
+new ISO. The admin should not have to assemble separate lab disks or media.
+A separate backup location was discussed earlier; the agreed next baseline is
+an ISO including all required parts. Any format-specific external dependencies
+must be identified explicitly rather than silently assumed.
+
+Test the EXACT GENERATED ISO through our PXE/capsule path, then validate the
+actual Heimdal PXE delivery path. ISO construction alone does not establish PXE
+bootability or runtime access to its contents; both remain acceptance criteria.
+Existing tests establish building blocks and are not validation of this complete
+production artifact. Production packaging/ingestion and Heimdal delivery remain
+unimplemented or unvalidated as documented below.
+
+## Evidence to retain when resuming
+
+- Bootable ISO path: PXE -> WinPE capsule -> UEFI -> Ubuntu installer reached;
+  no Ubuntu disk installation claim.
+- Windows WIM: stock Microsoft WIM applied to a blank disk; boot/recovery configured
+  and installed Windows specialize verified. No customer golden WIM or OOBE pass.
+- Clonezilla: assisted save/restore of a small UEFI fixture and restored target boot.
+  Separate attached lab media; serial input needed at reboot. Corrected ANSI marker
+  parser and prepared prompt suppression need a fresh unattended validation.
+  Full customer OS restore is still untested.
+- FFU: failed before capture at 49% of initial WIM application, DISM 1392. Full WIM
+  and QCOW2 structure subsequently checked successfully; root cause unresolved.
+- Veeam Linux recovery ISOs available; not yet tested. Windows agent installers are
+  available, but admin-created Windows recovery ISO is still pending.
+- Legacy NT/OS2/BeOS work remains parked. Focus on modern customer use cases.
+
+Resume with the self-contained artifact milestone, rather than treating repeated
+component tests as production readiness. Detailed test evidence, disk retention,
+limitations and previous checkpoints follow below. Git stores code/docs only;
+large media, VM disks and test artifacts remain local and must be preserved.
+
+---
+
 # Latest checkpoint — Clonezilla assisted pass; FFU unresolved — 2026-09-09
 
 No test is running. User asked to check FFU failure then continue with Clonezilla.
